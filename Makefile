@@ -1,4 +1,4 @@
-.PHONY: all build test lint clean tidy
+.PHONY: all build test test-v lint clean tidy
 
 GO := go
 MODULE := github.com/openbotstack/openbotstack-core
@@ -10,6 +10,9 @@ build:
 
 test:
 	$(GO) test -v -race ./...
+
+test-v:
+	$(GO) test -v ./...
 
 lint:
 	$(GO) vet ./...
