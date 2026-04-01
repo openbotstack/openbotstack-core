@@ -1,0 +1,84 @@
+package assistant
+
+import (
+	"context"
+	"errors"
+)
+
+var (
+	ErrMemoryNotFound = errors.New("assistant: memory key not found")
+)
+
+// SearchResult represents a single entry found during a semantic search.
+type SearchResult struct {
+	Content []byte
+	Score   float32
+}
+
+// AssistantMemory defines the contract for storing and searching assistant knowledge.
+type AssistantMemory interface {
+	Get(ctx context.Context, key string) ([]byte, error)
+	Set(ctx context.Context, key string, value []byte) error
+	Search(ctx context.Context, query string, limit int) ([]SearchResult, error)
+}
+
+// SessionMemory is an ephemeral, request-scoped memory implementation.
+type SessionMemory struct {
+	data map[string][]byte
+}
+
+func NewSessionMemory() *SessionMemory {
+	return &SessionMemory{data: make(map[string][]byte)}
+}
+
+func (m *SessionMemory) Get(ctx context.Context, key string) ([]byte, error) {
+	val, ok := m.data[key]
+	if !ok {
+		return nil, ErrMemoryNotFound
+	}
+	return val, nil
+}
+
+func (m *SessionMemory) Set(ctx context.Context, key string, value []byte) error {
+	m.data[key] = value
+	return nil
+}
+
+func (m *SessionMemory) Search(ctx context.Context, query string, limit int) ([]SearchResult, error) {
+	// Basic session memory doesn't support semantic search by default.
+	return nil, nil
+}
+
+// PersistentMemory is a long-term storage implementation.
+type PersistentMemory struct {
+	// In a real implementation, this would wrap a database.
+}
+
+func (m *PersistentMemory) Get(ctx context.Context, key string) ([]byte, error) {
+	return nil, ErrMemoryNotFound
+}
+
+func (m *PersistentMemory) Set(ctx context.Context, key string, value []byte) error {
+	return nil
+}
+
+func (m *PersistentMemory) Search(ctx context.Context, query string, limit int) ([]SearchResult, error) {
+	return nil, nil
+}
+
+// VectorMemory provides semantic search capabilities.
+type VectorMemory struct {
+	// In a real implementation, this would wrap Milvus or another vector DB.
+}
+
+func (m *VectorMemory) Get(ctx context.Context, key string) ([]byte, error) {
+	return nil, ErrMemoryNotFound
+}
+
+func (m *VectorMemory) Set(ctx context.Context, key string, value []byte) error {
+	return nil
+}
+
+func (m *VectorMemory) Search(ctx context.Context, query string, limit int) ([]SearchResult, error) {
+	return nil, nil
+}

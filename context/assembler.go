@@ -7,10 +7,10 @@
 package context
 
 import (
+	"github.com/openbotstack/openbotstack-core/control/skills"
 	"context"
 
-	"github.com/openbotstack/openbotstack-core/memory"
-	"github.com/openbotstack/openbotstack-core/model"
+	"github.com/openbotstack/openbotstack-core/memory/abstraction"
 )
 
 // AssembledContext is the complete context for an LLM call.
@@ -19,16 +19,16 @@ type AssembledContext struct {
 	SystemPrompt string
 
 	// Messages is the conversation history with injected memory.
-	Messages []model.Message
+	Messages []skills.Message
 
 	// AvailableTools is the list of tools the model can call.
-	AvailableTools []model.ToolDefinition
+	AvailableTools []skills.ToolDefinition
 
 	// Constraints limits applied to this request.
-	Constraints model.ModelConstraints
+	Constraints skills.ModelConstraints
 
 	// RelevantMemories are the memories retrieved for this context.
-	RelevantMemories []memory.MemoryEntry
+	RelevantMemories []abstraction.MemoryEntry
 }
 
 // AssistantContext provides the assistant's static configuration.
@@ -78,6 +78,6 @@ type ContextAssembler interface {
 		ctx context.Context,
 		assistant AssistantContext,
 		request UserRequest,
-		conversationHistory []model.Message,
+		conversationHistory []skills.Message,
 	) (*AssembledContext, error)
 }
