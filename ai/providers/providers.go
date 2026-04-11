@@ -143,69 +143,98 @@ func openAICompatibleGenerate(
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	endpoint := strings.TrimRight(baseURL, "/") + "/chat/completions"
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payload))
-	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
+	var lastErr error
+	attempts := maxRetries + 1
+	if attempts < 1 {
+		attempts = 1
 	}
 
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
-	for k, v := range headers {
-		httpReq.Header.Set(k, v)
-	}
-
-	start := time.Now()
-	resp, err := client.Do(httpReq)
-	if err != nil {
-		return nil, fmt.Errorf("http request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read response: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("api error (status %d): %s", resp.StatusCode, string(respBody))
-	}
-
-	var chatResp chatResponse
-	if err := json.Unmarshal(respBody, &chatResp); err != nil {
-		return nil, fmt.Errorf("unmarshal response: %w", err)
-	}
-
-	if chatResp.Error != nil {
-		return nil, fmt.Errorf("api error: %s (%s)", chatResp.Error.Message, chatResp.Error.Type)
-	}
-
-	latency := time.Since(start)
-
-	result := &skills.GenerateResponse{
-		Usage: skills.TokenUsage{
-			PromptTokens:     chatResp.Usage.PromptTokens,
-			CompletionTokens: chatResp.Usage.CompletionTokens,
-			TotalTokens:      chatResp.Usage.TotalTokens,
-		},
-		Latency: latency,
-	}
-
-	if len(chatResp.Choices) > 0 {
-		choice := chatResp.Choices[0]
-		result.Content = choice.Message.Content
-		result.FinishReason = choice.FinishReason
-
-		for _, tc := range choice.Message.ToolCalls {
-			result.ToolCalls = append(result.ToolCalls, skills.ToolCall{
-				ID:        tc.ID,
-				Name:      tc.Function.Name,
-				Arguments: tc.Function.Arguments,
-			})
+	for attempt := 0; attempt < attempts; attempt++ {
+		if attempt > 0 {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(time.Duration(1<<(attempt-1)) * time.Second):
+			}
 		}
+
+		endpoint := strings.TrimRight(baseURL, "/") + "/chat/completions"
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payload))
+		if err != nil {
+			return nil, fmt.Errorf("create request: %w", err)
+		}
+
+		httpReq.Header.Set("Content-Type", "application/json")
+		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+		for k, v := range headers {
+			httpReq.Header.Set(k, v)
+		}
+
+		start := time.Now()
+		resp, err := client.Do(httpReq)
+		if err != nil {
+			lastErr = fmt.Errorf("http request: %w", err)
+			continue
+		}
+
+		respBody, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			lastErr = fmt.Errorf("read response: %w", err)
+			continue
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			var chatResp chatResponse
+			if err := json.Unmarshal(respBody, &chatResp); err != nil {
+				return nil, fmt.Errorf("unmarshal response: %w", err)
+			}
+			if chatResp.Error != nil {
+				return nil, fmt.Errorf("api error: %s (%s)", chatResp.Error.Message, chatResp.Error.Type)
+			}
+
+			latency := time.Since(start)
+			result := &skills.GenerateResponse{
+				Usage: skills.TokenUsage{
+					PromptTokens:     chatResp.Usage.PromptTokens,
+					CompletionTokens: chatResp.Usage.CompletionTokens,
+					TotalTokens:      chatResp.Usage.TotalTokens,
+				},
+				Latency: latency,
+			}
+			if len(chatResp.Choices) > 0 {
+				choice := chatResp.Choices[0]
+				result.Content = choice.Message.Content
+				result.FinishReason = choice.FinishReason
+				for _, tc := range choice.Message.ToolCalls {
+					result.ToolCalls = append(result.ToolCalls, skills.ToolCall{
+						ID:        tc.ID,
+						Name:      tc.Function.Name,
+						Arguments: tc.Function.Arguments,
+					})
+				}
+			}
+			return result, nil
+		}
+
+		// Non-retryable status codes
+		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
+			return nil, fmt.Errorf("%w: status %d", ai.ErrAuthenticationFailed, resp.StatusCode)
+		}
+		if resp.StatusCode == http.StatusTooManyRequests {
+			lastErr = fmt.Errorf("rate limited: status 429")
+			continue
+		}
+		if resp.StatusCode >= 500 {
+			lastErr = fmt.Errorf("%w: status %d", ai.ErrProviderUnavailable, resp.StatusCode)
+			continue
+		}
+
+		// Other 4xx — don't retry
+		return nil, fmt.Errorf("%w: status %d: %s", ai.ErrBadRequest, resp.StatusCode, string(respBody))
 	}
 
-	return result, nil
+	return nil, fmt.Errorf("request failed after %d attempts: %w", attempts, lastErr)
 }
 
 // ----- Provider implementations -----

@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/openbotstack/openbotstack-core/ai"
 	"github.com/openbotstack/openbotstack-core/control/skills"
 )
 
@@ -246,5 +249,121 @@ func TestOpenAICompatibleGenerateAPIError(t *testing.T) {
 	})
 	if err == nil {
 		t.Error("Expected error for 401 response, got nil")
+	}
+}
+
+func TestSyncRetryOn500(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if callCount < 3 {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		mockResp := chatResponse{
+			Choices: []chatChoice{{Message: chatResponseMessage{Content: "success"}, FinishReason: "stop"}},
+		}
+		json.NewEncoder(w).Encode(mockResp)
+	}))
+	defer server.Close()
+
+	p := &openAIProvider{
+		baseURL: server.URL, apiKey: "key", modelName: "model",
+		client:       &http.Client{Timeout: 10 * time.Second},
+		maxRetries:   3,
+		capabilities: []skills.CapabilityType{skills.CapTextGeneration},
+	}
+	resp, err := p.Generate(context.Background(), skills.GenerateRequest{
+		Messages: []skills.Message{{Role: "user", Content: "hi"}},
+	})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if resp.Content != "success" {
+		t.Errorf("Expected 'success', got '%s'", resp.Content)
+	}
+	if callCount != 3 {
+		t.Errorf("Expected 3 calls (2 failures + 1 success), got %d", callCount)
+	}
+}
+
+func TestSyncRetryExhaustion(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	p := &openAIProvider{
+		baseURL: server.URL, apiKey: "key", modelName: "model",
+		client:       &http.Client{Timeout: 10 * time.Second},
+		maxRetries:   2,
+		capabilities: []skills.CapabilityType{skills.CapTextGeneration},
+	}
+	_, err := p.Generate(context.Background(), skills.GenerateRequest{
+		Messages: []skills.Message{{Role: "user", Content: "hi"}},
+	})
+	if err == nil {
+		t.Error("Expected error after retry exhaustion")
+	}
+}
+
+func TestSyncNoRetryOn400(t *testing.T) {
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		w.WriteHeader(http.StatusBadRequest)
+	}))
+	defer server.Close()
+
+	p := &openAIProvider{
+		baseURL: server.URL, apiKey: "key", modelName: "model",
+		client:       &http.Client{Timeout: 10 * time.Second},
+		maxRetries:   3,
+		capabilities: []skills.CapabilityType{skills.CapTextGeneration},
+	}
+	_, err := p.Generate(context.Background(), skills.GenerateRequest{
+		Messages: []skills.Message{{Role: "user", Content: "hi"}},
+	})
+	if err == nil {
+		t.Error("Expected error for 400")
+	}
+	if callCount != 1 {
+		t.Errorf("Expected 1 call (no retry for 4xx), got %d", callCount)
+	}
+}
+
+func TestSyncTypedErrors(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		wantErr    error
+	}{
+		{"401 unauthorized", 401, ai.ErrAuthenticationFailed},
+		{"403 forbidden", 403, ai.ErrAuthenticationFailed},
+		{"400 bad request", 400, ai.ErrBadRequest},
+		{"500 server error", 500, ai.ErrProviderUnavailable},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(tt.statusCode)
+			}))
+			defer server.Close()
+
+			p := &openAIProvider{
+				baseURL: server.URL, apiKey: "key", modelName: "model",
+				client:       &http.Client{Timeout: 10 * time.Second},
+				capabilities: []skills.CapabilityType{skills.CapTextGeneration},
+			}
+			_, err := p.Generate(context.Background(), skills.GenerateRequest{
+				Messages: []skills.Message{{Role: "user", Content: "hi"}},
+			})
+			if err == nil {
+				t.Fatal("Expected error")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr.Error()) {
+				t.Errorf("Expected error containing '%v', got '%v'", tt.wantErr, err)
+			}
+		})
 	}
 }
