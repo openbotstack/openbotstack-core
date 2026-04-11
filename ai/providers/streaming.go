@@ -201,7 +201,11 @@ func openAICompatibleStream(
 			select {
 			case ch <- sc:
 			case <-ctx.Done():
-				ch <- skills.StreamChunk{Error: ctx.Err()}
+				// Non-blocking send: consumer may have already stopped reading.
+				select {
+				case ch <- skills.StreamChunk{Error: ctx.Err()}:
+				default:
+				}
 				return
 			}
 		}
@@ -209,7 +213,7 @@ func openAICompatibleStream(
 		if err := scanner.Err(); err != nil && err != io.EOF {
 			select {
 			case ch <- skills.StreamChunk{Error: fmt.Errorf("stream read error: %w", err)}:
-			case <-ctx.Done():
+			default:
 			}
 		}
 	}()
