@@ -22,6 +22,9 @@ const (
 
 	// CapVision indicates the model supports image input.
 	CapVision CapabilityType = "vision"
+
+	// CapStreaming indicates the model supports streaming responses.
+	CapStreaming CapabilityType = "streaming"
 )
 
 // ModelConstraints defines routing constraints for model selection.
@@ -106,4 +109,20 @@ type TokenUsage struct {
 	PromptTokens     int
 	CompletionTokens int
 	TotalTokens      int
+}
+
+// StreamChunk represents a single chunk in a streaming response.
+type StreamChunk struct {
+	// Content is the incremental text content (delta, not accumulated).
+	Content string
+	// ToolCalls is the accumulated tool calls state at this point in the stream.
+	// Each chunk contains the full accumulated state, not just the delta.
+	// On final chunk, ToolCalls is complete and ready to use.
+	ToolCalls []ToolCall
+	// FinishReason is populated only on the final chunk.
+	FinishReason string
+	// Usage is populated only on the final chunk (if provider supports it).
+	Usage TokenUsage
+	// Error is non-nil on stream error. This is the final chunk before channel close.
+	Error error
 }

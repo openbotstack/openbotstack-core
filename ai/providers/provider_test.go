@@ -98,3 +98,20 @@ func TestGenerateResponse(t *testing.T) {
 		t.Errorf("Expected 15 total tokens, got %d", resp.Usage.TotalTokens)
 	}
 }
+
+func TestStreamChunk(t *testing.T) {
+	chunk := skills.StreamChunk{
+		Content:      "Hello",
+		FinishReason: "",
+		Usage:        skills.TokenUsage{TotalTokens: 5},
+	}
+	if chunk.Content != "Hello" {
+		t.Errorf("Expected 'Hello', got '%s'", chunk.Content)
+	}
+}
+
+func TestCapStreaming(t *testing.T) {
+	if skills.CapStreaming != "streaming" {
+		t.Errorf("Expected 'streaming', got '%s'", skills.CapStreaming)
+	}
+}
