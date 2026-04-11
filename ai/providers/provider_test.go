@@ -1,10 +1,11 @@
 package providers
 
 import (
-	"github.com/openbotstack/openbotstack-core/ai"
-	"github.com/openbotstack/openbotstack-core/control/skills"
 	"context"
 	"testing"
+
+	"github.com/openbotstack/openbotstack-core/ai"
+	"github.com/openbotstack/openbotstack-core/control/skills"
 )
 
 // MockProvider is a test implementation of ModelProvider.
