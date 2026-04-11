@@ -99,10 +99,14 @@ func openAICompatibleStream(
 
 	for attempt := 0; attempt < attempts; attempt++ {
 		if attempt > 0 {
+			backoff := time.Duration(1<<(attempt-1)) * time.Second
+			if backoff > 30*time.Second {
+				backoff = 30 * time.Second
+			}
 			select {
 			case <-ctx.Done():
 				return nil, ctx.Err()
-			case <-time.After(time.Duration(1<<(attempt-1)) * time.Second):
+			case <-time.After(backoff):
 			}
 		}
 
