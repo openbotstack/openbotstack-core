@@ -38,9 +38,22 @@ type streamChoice struct {
 }
 
 type streamDelta struct {
-	Role      string         `json:"role,omitempty"`
-	Content   string         `json:"content,omitempty"`
-	ToolCalls []chatToolCall `json:"tool_calls,omitempty"`
+	Role      string             `json:"role,omitempty"`
+	Content   string             `json:"content,omitempty"`
+	ToolCalls []streamToolCallDelta `json:"tool_calls,omitempty"`
+}
+
+// streamToolCallDelta represents an incremental tool call update in SSE streaming.
+type streamToolCallDelta struct {
+	Index    int                   `json:"index"`
+	ID       string                `json:"id,omitempty"`
+	Type     string                `json:"type,omitempty"`
+	Function streamFunctionDelta   `json:"function,omitempty"`
+}
+
+type streamFunctionDelta struct {
+	Name      string `json:"name,omitempty"`
+	Arguments string `json:"arguments,omitempty"`
 }
 
 // openAICompatibleStream performs a streaming chat completion request.
@@ -154,6 +167,10 @@ func openAICompatibleStream(
 		defer resp.Body.Close()
 		defer close(ch)
 
+		// Tool call accumulator: index → accumulated state
+		toolCallAccum := make(map[int]*skills.ToolCall)
+		toolCallCount := 0
+
 		scanner := bufio.NewScanner(resp.Body)
 		for scanner.Scan() {
 			line := scanner.Text()
@@ -186,11 +203,34 @@ func openAICompatibleStream(
 				}
 				if len(chunk.Choices[0].Delta.ToolCalls) > 0 {
 					for _, tc := range chunk.Choices[0].Delta.ToolCalls {
-						sc.ToolCalls = append(sc.ToolCalls, skills.ToolCall{
-							ID:        tc.ID,
-							Name:      tc.Function.Name,
-							Arguments: tc.Function.Arguments,
-						})
+						idx := tc.Index
+						if existing, ok := toolCallAccum[idx]; ok {
+							if tc.ID != "" {
+								existing.ID = tc.ID
+							}
+							if tc.Function.Name != "" {
+								existing.Name = tc.Function.Name
+							}
+							existing.Arguments += tc.Function.Arguments
+						} else {
+							toolCallAccum[idx] = &skills.ToolCall{
+								ID:        tc.ID,
+								Name:      tc.Function.Name,
+								Arguments: tc.Function.Arguments,
+							}
+							if idx >= toolCallCount {
+								toolCallCount = idx + 1
+							}
+						}
+					}
+				}
+				// Emit accumulated tool call state on every chunk
+				if toolCallCount > 0 {
+					sc.ToolCalls = make([]skills.ToolCall, 0, toolCallCount)
+					for i := 0; i < toolCallCount; i++ {
+						if tc, ok := toolCallAccum[i]; ok {
+							sc.ToolCalls = append(sc.ToolCalls, *tc)
+						}
 					}
 				}
 			}

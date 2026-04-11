@@ -188,3 +188,59 @@ func TestStreamingEmptyLines(t *testing.T) {
 		t.Fatalf("Expected 1 chunk, got %d", len(chunks))
 	}
 }
+
+func TestStreamingToolCallAccumulation(t *testing.T) {
+	// Simulate OpenAI streaming protocol: tool call arguments arrive incrementally
+	sseData := "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"get_weather\",\"arguments\":\"\"}}]}}]}\n\n" +
+		"data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"{\\\"lo\"}}]}}]}\n\n" +
+		"data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"cation\\\"}\"}}]}}]}\n\n" +
+		"data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"tool_calls\"}]}\n\n" +
+		"data: [DONE]\n\n"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		fmt.Fprint(w, sseData)
+	}))
+	defer server.Close()
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	ch, err := openAICompatibleStream(
+		context.Background(), client, server.URL, "key", "model", nil,
+		skills.GenerateRequest{Messages: []skills.Message{{Role: "user", Content: "weather?"}}},
+		0,
+	)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	var chunks []skills.StreamChunk
+	for chunk := range ch {
+		if chunk.Error != nil {
+			t.Fatalf("Unexpected stream error: %v", chunk.Error)
+		}
+		chunks = append(chunks, chunk)
+	}
+
+	if len(chunks) != 4 {
+		t.Fatalf("Expected 4 chunks, got %d", len(chunks))
+	}
+
+	// Last chunk should have fully accumulated tool call
+	last := chunks[len(chunks)-1]
+	if last.FinishReason != "tool_calls" {
+		t.Errorf("Expected finish_reason 'tool_calls', got '%s'", last.FinishReason)
+	}
+	if len(last.ToolCalls) != 1 {
+		t.Fatalf("Expected 1 accumulated tool call, got %d", len(last.ToolCalls))
+	}
+	tc := last.ToolCalls[0]
+	if tc.ID != "call_1" {
+		t.Errorf("Expected ID 'call_1', got '%s'", tc.ID)
+	}
+	if tc.Name != "get_weather" {
+		t.Errorf("Expected Name 'get_weather', got '%s'", tc.Name)
+	}
+	if tc.Arguments != `{"location"}` {
+		t.Errorf("Expected accumulated arguments '{\"location\"}', got '%s'", tc.Arguments)
+	}
+}
