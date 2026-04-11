@@ -37,3 +37,16 @@ type ModelRouter interface {
 	// List returns all registered provider IDs.
 	List() []string
 }
+
+// StreamingModelProvider extends ModelProvider with streaming support.
+// Providers that support streaming should implement this interface.
+// Callers can type-assert: if sp, ok := provider.(StreamingModelProvider); ok { ... }
+type StreamingModelProvider interface {
+	ModelProvider
+	// GenerateStream performs a streaming model generation call.
+	// Returns a read-only channel that emits StreamChunk values.
+	// The channel is closed when the stream ends (either naturally or on error).
+	// The caller MUST drain the channel (range over it) to avoid goroutine leaks.
+	// Context cancellation closes the channel with an error chunk.
+	GenerateStream(ctx context.Context, req skills.GenerateRequest) (<-chan skills.StreamChunk, error)
+}

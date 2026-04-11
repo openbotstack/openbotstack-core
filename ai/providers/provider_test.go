@@ -142,3 +142,35 @@ func TestCapStreaming(t *testing.T) {
 		t.Errorf("Expected 'streaming', got '%s'", skills.CapStreaming)
 	}
 }
+
+// MockStreamingProvider is a test implementation of StreamingModelProvider.
+type MockStreamingProvider struct {
+	MockProvider
+}
+
+func (m *MockStreamingProvider) GenerateStream(ctx context.Context, req skills.GenerateRequest) (<-chan skills.StreamChunk, error) {
+	ch := make(chan skills.StreamChunk, 1)
+	ch <- skills.StreamChunk{Content: "mock stream", FinishReason: "stop"}
+	close(ch)
+	return ch, nil
+}
+
+func TestStreamingModelProviderInterface(t *testing.T) {
+	// Verify MockStreamingProvider satisfies StreamingModelProvider
+	var _ StreamingModelProvider = &MockStreamingProvider{}
+
+	// Verify it also satisfies ModelProvider (embedded)
+	var _ ModelProvider = &MockStreamingProvider{}
+}
+
+func TestNewErrorTypes(t *testing.T) {
+	if ai.ErrProviderUnavailable == nil {
+		t.Error("ErrProviderUnavailable should not be nil")
+	}
+	if ai.ErrBadRequest == nil {
+		t.Error("ErrBadRequest should not be nil")
+	}
+	if ai.ErrAuthenticationFailed == nil {
+		t.Error("ErrAuthenticationFailed should not be nil")
+	}
+}

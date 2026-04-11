@@ -20,4 +20,13 @@ var (
 
 	// ErrContextCanceled is returned when the context is canceled.
 	ErrContextCanceled = errors.New("model: context canceled")
+
+	// ErrProviderUnavailable indicates the LLM provider returned a server error (5xx).
+	ErrProviderUnavailable = errors.New("model: provider unavailable")
+
+	// ErrBadRequest indicates the LLM provider rejected the request (4xx, not 401/403/429).
+	ErrBadRequest = errors.New("model: bad request")
+
+	// ErrAuthenticationFailed indicates authentication with the LLM provider failed.
+	ErrAuthenticationFailed = errors.New("model: authentication failed")
 )
