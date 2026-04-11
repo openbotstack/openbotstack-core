@@ -41,6 +41,7 @@ func TestCapabilityTypes(t *testing.T) {
 		skills.CapJSONMode,
 		skills.CapEmbedding,
 		skills.CapVision,
+		skills.CapStreaming,
 	}
 
 	for _, cap := range caps {
@@ -102,11 +103,36 @@ func TestGenerateResponse(t *testing.T) {
 func TestStreamChunk(t *testing.T) {
 	chunk := skills.StreamChunk{
 		Content:      "Hello",
-		FinishReason: "",
-		Usage:        skills.TokenUsage{TotalTokens: 5},
+		ToolCalls:    []skills.ToolCall{{ID: "call_1", Name: "test_tool", Arguments: `{"key":"value"}`}},
+		FinishReason: "stop",
+		Usage:        skills.TokenUsage{PromptTokens: 10, CompletionTokens: 5, TotalTokens: 15},
 	}
 	if chunk.Content != "Hello" {
-		t.Errorf("Expected 'Hello', got '%s'", chunk.Content)
+		t.Errorf("Expected Content 'Hello', got '%s'", chunk.Content)
+	}
+	if len(chunk.ToolCalls) != 1 {
+		t.Fatalf("Expected 1 ToolCall, got %d", len(chunk.ToolCalls))
+	}
+	if chunk.ToolCalls[0].Name != "test_tool" {
+		t.Errorf("Expected ToolCall Name 'test_tool', got '%s'", chunk.ToolCalls[0].Name)
+	}
+	if chunk.FinishReason != "stop" {
+		t.Errorf("Expected FinishReason 'stop', got '%s'", chunk.FinishReason)
+	}
+	if chunk.Usage.TotalTokens != 15 {
+		t.Errorf("Expected TotalTokens 15, got %d", chunk.Usage.TotalTokens)
+	}
+}
+
+func TestStreamChunkError(t *testing.T) {
+	chunk := skills.StreamChunk{
+		Error: context.Canceled,
+	}
+	if chunk.Error == nil {
+		t.Error("Expected non-nil Error")
+	}
+	if chunk.Error.Error() != "context canceled" {
+		t.Errorf("Expected 'context canceled', got '%s'", chunk.Error.Error())
 	}
 }
 
