@@ -100,6 +100,7 @@ func openAICompatibleGenerate(
 	baseURL, apiKey, model string,
 	headers map[string]string,
 	req skills.GenerateRequest,
+	maxRetries int,
 ) (*skills.GenerateResponse, error) {
 	// Build messages
 	messages := make([]chatMessage, 0, len(req.Messages))
@@ -248,7 +249,7 @@ func (p *OpenAIProvider) Generate(ctx context.Context, req skills.GenerateReques
 	if p.apiKey == "" {
 		return nil, fmt.Errorf("openai: API key not configured")
 	}
-	return openAICompatibleGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, nil, req)
+	return openAICompatibleGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, nil, req, 0)
 }
 
 func (p *OpenAIProvider) Embed(ctx context.Context, texts []string) ([][]float32, error) {
@@ -302,7 +303,7 @@ func (p *ClaudeProvider) Generate(ctx context.Context, req skills.GenerateReques
 		"x-api-key":         p.apiKey,
 		"anthropic-version": claudeAPIVersion,
 	}
-	return openAICompatibleGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, headers, req)
+	return openAICompatibleGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, headers, req, 0)
 }
 
 func (p *ClaudeProvider) Embed(ctx context.Context, texts []string) ([][]float32, error) {
@@ -345,7 +346,7 @@ func (p *ModelScopeProvider) Generate(ctx context.Context, req skills.GenerateRe
 	if p.apiKey == "" {
 		return nil, fmt.Errorf("modelscope: API key not configured")
 	}
-	return openAICompatibleGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, nil, req)
+	return openAICompatibleGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, nil, req, 0)
 }
 
 func (p *ModelScopeProvider) Embed(ctx context.Context, texts []string) ([][]float32, error) {
@@ -388,7 +389,7 @@ func (p *SiliconFlowProvider) Generate(ctx context.Context, req skills.GenerateR
 	if p.apiKey == "" {
 		return nil, fmt.Errorf("siliconflow: API key not configured")
 	}
-	return openAICompatibleGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, nil, req)
+	return openAICompatibleGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, nil, req, 0)
 }
 
 func (p *SiliconFlowProvider) Embed(ctx context.Context, texts []string) ([][]float32, error) {

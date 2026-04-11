@@ -1,10 +1,13 @@
 package providers
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
+	"github.com/openbotstack/openbotstack-core/ai"
 	"github.com/openbotstack/openbotstack-core/control/skills"
 )
 
@@ -59,4 +62,52 @@ func (c *ProviderConfig) Validate() error {
 	}
 
 	return nil
+}
+
+// openAIProvider is a unified provider for any OpenAI-compatible endpoint.
+type openAIProvider struct {
+	baseURL      string
+	apiKey       string
+	modelName    string
+	headers      map[string]string
+	client       *http.Client
+	capabilities []skills.CapabilityType
+	maxRetries   int
+}
+
+// NewProviderFromConfig creates a ModelProvider from ProviderConfig.
+// The returned provider implements StreamingModelProvider.
+func NewProviderFromConfig(cfg ProviderConfig) (ModelProvider, error) {
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+	return &openAIProvider{
+		baseURL:      cfg.BaseURL,
+		apiKey:       cfg.APIKey,
+		modelName:    cfg.Model,
+		headers:      cfg.Headers,
+		client:       &http.Client{Timeout: cfg.Timeout},
+		capabilities: cfg.Capabilities,
+		maxRetries:   cfg.MaxRetries,
+	}, nil
+}
+
+func (p *openAIProvider) ID() string {
+	return "openai/" + p.modelName
+}
+
+func (p *openAIProvider) Capabilities() []skills.CapabilityType {
+	return p.capabilities
+}
+
+func (p *openAIProvider) Generate(ctx context.Context, req skills.GenerateRequest) (*skills.GenerateResponse, error) {
+	return openAICompatibleGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, p.headers, req, p.maxRetries)
+}
+
+func (p *openAIProvider) GenerateStream(ctx context.Context, req skills.GenerateRequest) (<-chan skills.StreamChunk, error) {
+	return openAICompatibleStream(ctx, p.client, p.baseURL, p.apiKey, p.modelName, p.headers, req, p.maxRetries)
+}
+
+func (p *openAIProvider) Embed(ctx context.Context, texts []string) ([][]float32, error) {
+	return nil, ai.ErrCapabilityNotSupported
 }

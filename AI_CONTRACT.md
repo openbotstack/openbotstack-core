@@ -22,6 +22,10 @@ This repository defines the CONTROL PLANE of OpenBotStack.
 - Depend on runtime implementations
 - Perform network calls to third-party services
 
+> **Exception (ADR-011):** Model Plane provider adapters (e.g., OpenAICompatibleProvider, ClaudeProvider)
+> may perform network calls to third-party LLM services as part of their adapter role.
+> This is an intentional architectural decision documented in ADR-011.
+
 ## DESIGN RULES:
 - Prefer interfaces over implementations
 - All state transitions must be explicit

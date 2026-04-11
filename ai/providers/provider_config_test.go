@@ -142,3 +142,78 @@ func TestProviderConfigValidateCustomTimeout(t *testing.T) {
 		t.Errorf("Expected custom timeout preserved as 30s, got %v", cfg.Timeout)
 	}
 }
+
+func TestNewProviderFromConfig(t *testing.T) {
+	cfg := ProviderConfig{
+		BaseURL: "http://localhost:8000/v1",
+		APIKey:  "test-key",
+		Model:   "test-model",
+	}
+	provider, err := NewProviderFromConfig(cfg)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if provider.ID() != "openai/test-model" {
+		t.Errorf("Expected ID 'openai/test-model', got '%s'", provider.ID())
+	}
+}
+
+func TestNewProviderFromConfigInvalid(t *testing.T) {
+	cfg := ProviderConfig{Model: "test-model"} // Missing BaseURL
+	_, err := NewProviderFromConfig(cfg)
+	if err == nil {
+		t.Error("Expected error for invalid config")
+	}
+}
+
+func TestNewProviderFromConfigInterfaceCompliance(t *testing.T) {
+	cfg := ProviderConfig{
+		BaseURL: "http://localhost:8000/v1",
+		Model:   "test-model",
+	}
+	provider, err := NewProviderFromConfig(cfg)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	// Verify it satisfies ModelProvider
+	var _ ModelProvider = provider
+	// Verify it satisfies StreamingModelProvider
+	var _ StreamingModelProvider = provider.(*openAIProvider)
+}
+
+func TestNewProviderFromConfigCapabilities(t *testing.T) {
+	cfg := ProviderConfig{
+		BaseURL: "http://localhost:8000/v1",
+		Model:   "test-model",
+	}
+	provider, _ := NewProviderFromConfig(cfg)
+	caps := provider.Capabilities()
+	hasStreaming := false
+	for _, c := range caps {
+		if c == skills.CapStreaming {
+			hasStreaming = true
+		}
+	}
+	if !hasStreaming {
+		t.Error("Expected CapStreaming in default capabilities")
+	}
+}
+
+func TestStreamingTypeAssertion(t *testing.T) {
+	// Verify that old providers do NOT satisfy StreamingModelProvider
+	oldProvider := NewOpenAIProvider("", "key", "gpt-4o")
+	var oldIface ModelProvider = oldProvider
+	if _, ok := oldIface.(StreamingModelProvider); ok {
+		t.Error("Old OpenAIProvider should NOT satisfy StreamingModelProvider")
+	}
+
+	// Verify new provider DOES satisfy StreamingModelProvider
+	cfg := ProviderConfig{
+		BaseURL: "http://localhost:8000/v1",
+		Model:   "test-model",
+	}
+	newProvider, _ := NewProviderFromConfig(cfg)
+	if _, ok := newProvider.(StreamingModelProvider); !ok {
+		t.Error("NewProviderFromConfig result should satisfy StreamingModelProvider")
+	}
+}
