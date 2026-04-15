@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/openbotstack/openbotstack-core/ai"
 	"github.com/openbotstack/openbotstack-core/control/skills"
 )
 
@@ -109,5 +108,6 @@ func (p *openAIProvider) GenerateStream(ctx context.Context, req skills.Generate
 }
 
 func (p *openAIProvider) Embed(ctx context.Context, texts []string) ([][]float32, error) {
-	return nil, ai.ErrCapabilityNotSupported
+	model := "text-embedding-3-small"
+	return openAICompatibleEmbed(ctx, p.client, p.baseURL, p.apiKey, model, p.headers, texts, 0)
 }

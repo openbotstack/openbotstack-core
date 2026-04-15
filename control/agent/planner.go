@@ -87,6 +87,14 @@ func (p *LLMPlanner) buildPrompt(req PlanRequest) string {
 		}
 	}
 
+	// Inject conversation history context
+	if len(req.ConversationHistory) > 0 {
+		sb.WriteString("\nPrevious conversation:\n")
+		for _, msg := range req.ConversationHistory {
+			_, _ = fmt.Fprintf(&sb, "[%s]: %s\n", msg.Role, msg.Content)
+		}
+	}
+
 	sb.WriteString("\nUser message: ")
 	sb.WriteString(req.UserMessage)
 	sb.WriteString("\n\n")

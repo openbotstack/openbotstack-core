@@ -92,6 +92,33 @@ type chatError struct {
 	Type    string `json:"type"`
 }
 
+// ----- OpenAI-compatible Embeddings request/response types -----
+
+type embedRequest struct {
+	Model      string   `json:"model"`
+	Input      []string `json:"input"`
+	Dimensions int      `json:"dimensions,omitempty"`
+}
+
+type embedResponse struct {
+	Object string        `json:"object"`
+	Data   []embedData   `json:"data"`
+	Model  string        `json:"model"`
+	Usage  embedUsage    `json:"usage"`
+	Error  *chatError    `json:"error,omitempty"`
+}
+
+type embedData struct {
+	Object    string    `json:"object"`
+	Embedding []float32 `json:"embedding"`
+	Index     int       `json:"index"`
+}
+
+type embedUsage struct {
+	PromptTokens int `json:"prompt_tokens"`
+	TotalTokens  int `json:"total_tokens"`
+}
+
 // openAICompatibleGenerate sends a chat completion request to any
 // OpenAI-compatible endpoint and returns a GenerateResponse.
 func openAICompatibleGenerate(
@@ -241,6 +268,79 @@ func openAICompatibleGenerate(
 	return nil, fmt.Errorf("request failed after %d attempts: %w", attempts, lastErr)
 }
 
+// openAICompatibleEmbed sends an embedding request to an OpenAI-compatible endpoint.
+func openAICompatibleEmbed(
+	ctx context.Context,
+	client *http.Client,
+	baseURL, apiKey, model string,
+	headers map[string]string,
+	texts []string,
+	dimensions int,
+) ([][]float32, error) {
+	if len(texts) == 0 {
+		return nil, fmt.Errorf("embed: no input texts provided")
+	}
+
+	body := embedRequest{
+		Model: model,
+		Input: texts,
+	}
+	if dimensions > 0 {
+		body.Dimensions = dimensions
+	}
+
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("marshal embed request: %w", err)
+	}
+
+	endpoint := strings.TrimRight(baseURL, "/") + "/embeddings"
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payload))
+	if err != nil {
+		return nil, fmt.Errorf("create embed request: %w", err)
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	for k, v := range headers {
+		httpReq.Header.Set(k, v)
+	}
+
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("embed http request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read embed response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("embed API error: status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var embedResp embedResponse
+	if err := json.Unmarshal(respBody, &embedResp); err != nil {
+		return nil, fmt.Errorf("unmarshal embed response: %w", err)
+	}
+	if embedResp.Error != nil {
+		return nil, fmt.Errorf("embed API error: %s (%s)", embedResp.Error.Message, embedResp.Error.Type)
+	}
+
+	// Sort by index to ensure order matches input
+	results := make([][]float32, len(embedResp.Data))
+	for _, d := range embedResp.Data {
+		if d.Index < 0 || d.Index >= len(results) {
+			continue
+		}
+		results[d.Index] = d.Embedding
+	}
+
+	return results, nil
+}
+
 // ----- Provider implementations -----
 
 // OpenAIProvider implements ModelProvider for OpenAI models.
@@ -275,6 +375,7 @@ func (p *OpenAIProvider) Capabilities() []skills.CapabilityType {
 		skills.CapToolCalling,
 		skills.CapJSONMode,
 		skills.CapVision,
+		skills.CapEmbedding,
 	}
 }
 
@@ -286,8 +387,11 @@ func (p *OpenAIProvider) Generate(ctx context.Context, req skills.GenerateReques
 }
 
 func (p *OpenAIProvider) Embed(ctx context.Context, texts []string) ([][]float32, error) {
-	// TODO(phase-3): Implement OpenAI embedding endpoint (/v1/embeddings)
-	return nil, ai.ErrCapabilityNotSupported
+	if p.apiKey == "" {
+		return nil, fmt.Errorf("openai: API key not configured")
+	}
+	model := "text-embedding-3-small"
+	return openAICompatibleEmbed(ctx, p.client, p.baseURL, p.apiKey, model, nil, texts, 0)
 }
 
 // ClaudeProvider implements ModelProvider for Anthropic Claude models.

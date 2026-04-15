@@ -50,6 +50,7 @@ func (m *SessionMemory) Search(ctx context.Context, query string, limit int) ([]
 }
 
 // PersistentMemory is a long-term storage implementation.
+// Deprecated: Use runtime/memory.MarkdownMemoryBridge for persistent storage.
 type PersistentMemory struct {
 	// In a real implementation, this would wrap a database.
 }
@@ -67,6 +68,7 @@ func (m *PersistentMemory) Search(ctx context.Context, query string, limit int) 
 }
 
 // VectorMemory provides semantic search capabilities.
+// Deprecated: Vector memory will be implemented in Phase 3.1.
 type VectorMemory struct {
 	// In a real implementation, this would wrap Milvus or another vector DB.
 }

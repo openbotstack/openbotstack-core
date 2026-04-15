@@ -61,7 +61,9 @@ func (l *WasmLoader) Load(ctx context.Context, wasmBytes []byte) (WasmModule, er
 		return nil, ErrWasmLoadFailed
 	}
 
-	// TODO: Use wasmtime/wasmer to actually load
+	// Stub: validates magic bytes only. Real execution uses wazero in
+	// runtime/sandbox/wasm/runtime.go which provides full module loading,
+	// memory limits, and host function binding.
 	return &stubWasmModule{
 		memoryLimit: l.defaultMemoryLimit,
 	}, nil
@@ -77,6 +79,8 @@ func (l *WasmLoader) LoadFromPath(ctx context.Context, path string) (WasmModule,
 }
 
 // stubWasmModule is a stub implementation for testing.
+// Deprecated: Use runtime/sandbox/wasm.Runtime for real Wasm execution.
+// This stub is only used by core's WasmLoader which is itself deprecated.
 type stubWasmModule struct {
 	memoryLimit int64
 }

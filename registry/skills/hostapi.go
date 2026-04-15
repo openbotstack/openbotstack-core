@@ -77,8 +77,8 @@ func (h *HostAPI) HTTPFetch(ctx context.Context, req HTTPRequest) (*HTTPResponse
 		return nil, ErrInvalidURL
 	}
 
-	// TODO: Implement actual HTTP client with sandboxing
-	// This is a stub
+	// TODO: Wire to runtime/sandbox/wasm/hostapi_http.go SandboxedHTTPClient
+	// via toolrunner/tool_invocation pipeline. This stub returns a fake response.
 	return &HTTPResponse{
 		StatusCode: 200,
 		Headers:    map[string]string{},

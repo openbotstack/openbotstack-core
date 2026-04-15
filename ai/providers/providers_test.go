@@ -3,9 +3,9 @@ package providers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -57,6 +57,7 @@ func TestOpenAIProviderCapabilities(t *testing.T) {
 		skills.CapToolCalling,
 		skills.CapJSONMode,
 		skills.CapVision,
+		skills.CapEmbedding,
 	}
 
 	if len(caps) != len(expected) {
@@ -332,6 +333,203 @@ func TestSyncNoRetryOn400(t *testing.T) {
 	}
 }
 
+func TestOpenAICompatibleEmbed(t *testing.T) {
+	mockResp := embedResponse{
+		Object: "list",
+		Data: []embedData{
+			{Object: "embedding", Embedding: []float32{0.1, 0.2, 0.3}, Index: 0},
+			{Object: "embedding", Embedding: []float32{0.4, 0.5, 0.6}, Index: 1},
+		},
+		Model: "text-embedding-3-small",
+		Usage:  embedUsage{PromptTokens: 10, TotalTokens: 10},
+	}
+
+	var receivedRequest embedRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("Expected POST, got %s", r.Method)
+		}
+		if r.URL.Path != "/embeddings" {
+			t.Errorf("Expected /embeddings, got %s", r.URL.Path)
+		}
+		if r.Header.Get("Authorization") != "Bearer test-key" {
+			t.Errorf("Expected Bearer test-key, got %s", r.Header.Get("Authorization"))
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&receivedRequest); err != nil {
+			t.Fatalf("Failed to decode request: %v", err)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(mockResp); err != nil {
+			t.Fatalf("Failed to encode response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	results, err := openAICompatibleEmbed(context.Background(),
+		http.DefaultClient, server.URL, "test-key", "text-embedding-3-small",
+		nil, []string{"hello", "world"}, 0)
+	if err != nil {
+		t.Fatalf("openAICompatibleEmbed returned unexpected error: %v", err)
+	}
+
+	if len(results) != 2 {
+		t.Fatalf("Expected 2 results, got %d", len(results))
+	}
+	if results[0][0] != 0.1 || results[0][1] != 0.2 || results[0][2] != 0.3 {
+		t.Errorf("Unexpected first embedding: %v", results[0])
+	}
+	if results[1][0] != 0.4 || results[1][1] != 0.5 || results[1][2] != 0.6 {
+		t.Errorf("Unexpected second embedding: %v", results[1])
+	}
+
+	// Verify request was properly formatted
+	if receivedRequest.Model != "text-embedding-3-small" {
+		t.Errorf("Expected model 'text-embedding-3-small', got '%s'", receivedRequest.Model)
+	}
+	if len(receivedRequest.Input) != 2 {
+		t.Fatalf("Expected 2 inputs, got %d", len(receivedRequest.Input))
+	}
+	if receivedRequest.Input[0] != "hello" || receivedRequest.Input[1] != "world" {
+		t.Errorf("Unexpected inputs: %v", receivedRequest.Input)
+	}
+}
+
+func TestOpenAICompatibleEmbed_WithDimensions(t *testing.T) {
+	var receivedRequest embedRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&receivedRequest)
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(embedResponse{
+			Data: []embedData{{Embedding: []float32{0.1, 0.2}, Index: 0}},
+		})
+	}))
+	defer server.Close()
+
+	_, err := openAICompatibleEmbed(context.Background(),
+		http.DefaultClient, server.URL, "key", "model", nil,
+		[]string{"test"}, 512)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if receivedRequest.Dimensions != 512 {
+		t.Errorf("Expected dimensions 512, got %d", receivedRequest.Dimensions)
+	}
+}
+
+func TestOpenAICompatibleEmbed_ResponseOrdering(t *testing.T) {
+	// Server returns results out of order — function must sort by index
+	mockResp := embedResponse{
+		Data: []embedData{
+			{Embedding: []float32{0.4, 0.5, 0.6}, Index: 1},
+			{Embedding: []float32{0.1, 0.2, 0.3}, Index: 0},
+			{Embedding: []float32{0.7, 0.8, 0.9}, Index: 2},
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockResp)
+	}))
+	defer server.Close()
+
+	results, err := openAICompatibleEmbed(context.Background(),
+		http.DefaultClient, server.URL, "key", "model", nil,
+		[]string{"a", "b", "c"}, 0)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	// Results should be sorted by index
+	if results[0][0] != 0.1 {
+		t.Errorf("Expected first result to be index 0 (0.1), got %v", results[0])
+	}
+	if results[1][0] != 0.4 {
+		t.Errorf("Expected second result to be index 1 (0.4), got %v", results[1])
+	}
+	if results[2][0] != 0.7 {
+		t.Errorf("Expected third result to be index 2 (0.7), got %v", results[2])
+	}
+}
+
+func TestOpenAICompatibleEmbed_EmptyInput(t *testing.T) {
+	_, err := openAICompatibleEmbed(context.Background(),
+		http.DefaultClient, "http://localhost", "key", "model", nil, nil, 0)
+	if err == nil {
+		t.Fatal("Expected error for empty input")
+	}
+}
+
+func TestOpenAICompatibleEmbed_APIError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error": map[string]string{
+				"message": "Invalid API key",
+				"type":    "authentication_error",
+			},
+		})
+	}))
+	defer server.Close()
+
+	_, err := openAICompatibleEmbed(context.Background(),
+		http.DefaultClient, server.URL, "bad-key", "model", nil,
+		[]string{"test"}, 0)
+	if err == nil {
+		t.Fatal("Expected error for 401 response")
+	}
+}
+
+func TestOpenAICompatibleEmbed_ResponseError(t *testing.T) {
+	// Server returns 200 but with an error in the response body
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(embedResponse{
+			Error: &chatError{Message: "model not found", Type: "invalid_request_error"},
+		})
+	}))
+	defer server.Close()
+
+	_, err := openAICompatibleEmbed(context.Background(),
+		http.DefaultClient, server.URL, "key", "bad-model", nil,
+		[]string{"test"}, 0)
+	if err == nil {
+		t.Fatal("Expected error from response body")
+	}
+}
+
+func TestOpenAIProviderEmbed_NoAPIKey(t *testing.T) {
+	provider := NewOpenAIProvider("", "", "gpt-4o")
+	_, err := provider.Embed(context.Background(), []string{"hello"})
+	if err == nil {
+		t.Error("Expected error for empty API key")
+	}
+}
+
+func TestOpenAIProviderEmbed_WithCustomHeaders(t *testing.T) {
+	var receivedHeaders http.Header
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedHeaders = r.Header
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(embedResponse{
+			Data: []embedData{{Embedding: []float32{0.1}, Index: 0}},
+		})
+	}))
+	defer server.Close()
+
+	_, err := openAICompatibleEmbed(context.Background(),
+		http.DefaultClient, server.URL, "key", "model",
+		map[string]string{"X-Custom": "value"},
+		[]string{"test"}, 0)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if receivedHeaders.Get("X-Custom") != "value" {
+		t.Errorf("Expected X-Custom header 'value', got %q", receivedHeaders.Get("X-Custom"))
+	}
+}
+
 func TestSyncTypedErrors(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -361,8 +559,8 @@ func TestSyncTypedErrors(t *testing.T) {
 			if err == nil {
 				t.Fatal("Expected error")
 			}
-			if !strings.Contains(err.Error(), tt.wantErr.Error()) {
-				t.Errorf("Expected error containing '%v', got '%v'", tt.wantErr, err)
+			if !errors.Is(err, tt.wantErr) {
+				t.Errorf("Expected errors.Is(err, %v), got '%v'", tt.wantErr, err)
 			}
 		})
 	}
