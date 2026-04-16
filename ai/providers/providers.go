@@ -209,7 +209,7 @@ func openAICompatibleGenerate(
 		}
 
 		respBody, err := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		func() { _ = resp.Body.Close() }()
 		if err != nil {
 			lastErr = fmt.Errorf("read response: %w", err)
 			continue
@@ -310,7 +310,7 @@ func openAICompatibleEmbed(
 	if err != nil {
 		return nil, fmt.Errorf("embed http request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {

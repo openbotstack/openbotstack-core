@@ -101,17 +101,17 @@ func (p *LLMPlanner) buildPrompt(pCtx *PlannerContext) string {
 	sb.WriteString("You are an execution planner. Create a deterministic execution plan to handle the user's request.\n")
 	
 	if pCtx.Soul.Personality != "" {
-		sb.WriteString(fmt.Sprintf("\nPersonality: %s\n", pCtx.Soul.Personality))
+		fmt.Fprintf(&sb, "\nPersonality: %s\n", pCtx.Soul.Personality)
 	}
 	
 	if pCtx.Soul.Instructions != "" {
-		sb.WriteString(fmt.Sprintf("\nSpecific Instructions:\n%s\n", pCtx.Soul.Instructions))
+		fmt.Fprintf(&sb, "\nSpecific Instructions:\n%s\n", pCtx.Soul.Instructions)
 	}
 
 	if len(pCtx.MemoryContext) > 0 {
 		sb.WriteString("\nRelevant Memory Context:\n")
 		for _, mem := range pCtx.MemoryContext {
-			sb.WriteString(fmt.Sprintf("- %s\n", string(mem.Content)))
+			fmt.Fprintf(&sb, "- %s\n", string(mem.Content))
 		}
 	}
 
@@ -122,7 +122,7 @@ func (p *LLMPlanner) buildPrompt(pCtx *PlannerContext) string {
 			bytes, _ := json.Marshal(skill.InputSchema)
 			schemaJSON = string(bytes)
 		}
-		sb.WriteString(fmt.Sprintf("- %s (%s): %s\n  Input schema: %s\n", skill.ID, skill.Name, skill.Description, schemaJSON))
+		fmt.Fprintf(&sb, "- %s (%s): %s\n  Input schema: %s\n", skill.ID, skill.Name, skill.Description, schemaJSON)
 	}
 
 	sb.WriteString("\nUser request: ")

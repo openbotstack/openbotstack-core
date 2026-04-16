@@ -176,7 +176,7 @@ func TestNewProviderFromConfigInterfaceCompliance(t *testing.T) {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 	// Verify it satisfies ModelProvider
-	var _ ModelProvider = provider
+	var _ ModelProvider = provider //nolint:staticcheck // QF1011: explicit type assertion for compile-time interface check
 	// Verify it satisfies StreamingModelProvider
 	var _ StreamingModelProvider = provider.(*openAIProvider)
 }

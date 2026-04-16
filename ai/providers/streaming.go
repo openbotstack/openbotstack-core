@@ -90,11 +90,11 @@ func openAICompatibleStream(
 		StreamOptions: &streamOptions{IncludeUsage: true},
 	}
 	if req.MaxTokens > 0 {
-		body.chatRequest.MaxTokens = req.MaxTokens
+		body.MaxTokens = req.MaxTokens
 	}
 	if req.Temperature > 0 {
 		temp := req.Temperature
-		body.chatRequest.Temperature = &temp
+		body.Temperature = &temp
 	}
 
 	payload, err := json.Marshal(body)
@@ -145,15 +145,15 @@ func openAICompatibleStream(
 		}
 
 		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
-			resp.Body.Close()
+			func() { _ = resp.Body.Close() }()
 			return nil, fmt.Errorf("%w: status %d", ai.ErrAuthenticationFailed, resp.StatusCode)
 		}
 		if resp.StatusCode < 500 && resp.StatusCode != http.StatusTooManyRequests {
-			resp.Body.Close()
+			func() { _ = resp.Body.Close() }()
 			return nil, fmt.Errorf("%w: status %d", ai.ErrBadRequest, resp.StatusCode)
 		}
 
-		resp.Body.Close()
+		func() { _ = resp.Body.Close() }()
 		lastErr = fmt.Errorf("stream request failed with status %d", resp.StatusCode)
 	}
 
@@ -164,7 +164,7 @@ func openAICompatibleStream(
 	// Start goroutine to read SSE stream
 	ch := make(chan skills.StreamChunk, 64)
 	go func() {
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		defer close(ch)
 
 		// Tool call accumulator: index → accumulated state

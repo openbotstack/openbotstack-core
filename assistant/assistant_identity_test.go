@@ -2,13 +2,33 @@ package assistant
 
 import (
 	"context"
+	"os"
 	"testing"
 )
 
 func TestLoadSoulFromMarkdown(t *testing.T) {
-	path := "/tmp/soul.md"
-	
-	soul, err := LoadSoulFromMarkdown(path)
+	content := `# Personality
+Friendly and helpful coding assistant.
+
+## System Prompt
+You are OpenBotStack Assistant.
+
+## Instructions
+1. Always be polite.
+2. Use markdown for code.
+`
+	f, err := os.CreateTemp(t.TempDir(), "soul-*.md")
+	if err != nil {
+		t.Fatalf("create temp file: %v", err)
+	}
+	if _, err := f.WriteString(content); err != nil {
+		t.Fatalf("write temp file: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("close temp file: %v", err)
+	}
+
+	soul, err := LoadSoulFromMarkdown(f.Name())
 	if err != nil {
 		t.Fatalf("failed to load soul: %v", err)
 	}
@@ -21,8 +41,9 @@ func TestLoadSoulFromMarkdown(t *testing.T) {
 		t.Errorf("expected system prompt 'You are OpenBotStack Assistant.', got '%s'", soul.SystemPrompt)
 	}
 
-	if soul.Instructions != "1. Always be polite.\n2. Use markdown for code." {
-		t.Errorf("expected instructions with two lines, got '%s'", soul.Instructions)
+	wantInstructions := "1. Always be polite.\n2. Use markdown for code."
+	if soul.Instructions != wantInstructions {
+		t.Errorf("expected instructions '%s', got '%s'", wantInstructions, soul.Instructions)
 	}
 }
 
