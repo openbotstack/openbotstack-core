@@ -48,39 +48,3 @@ func (m *SessionMemory) Search(ctx context.Context, query string, limit int) ([]
 	// Basic session memory doesn't support semantic search by default.
 	return nil, nil
 }
-
-// PersistentMemory is a long-term storage implementation.
-// Deprecated: Use runtime/memory.MarkdownMemoryBridge for persistent storage.
-type PersistentMemory struct {
-	// In a real implementation, this would wrap a database.
-}
-
-func (m *PersistentMemory) Get(ctx context.Context, key string) ([]byte, error) {
-	return nil, ErrMemoryNotFound
-}
-
-func (m *PersistentMemory) Set(ctx context.Context, key string, value []byte) error {
-	return nil
-}
-
-func (m *PersistentMemory) Search(ctx context.Context, query string, limit int) ([]SearchResult, error) {
-	return nil, nil
-}
-
-// VectorMemory provides semantic search capabilities.
-// Deprecated: Vector memory will be implemented in Phase 3.1.
-type VectorMemory struct {
-	// In a real implementation, this would wrap Milvus or another vector DB.
-}
-
-func (m *VectorMemory) Get(ctx context.Context, key string) ([]byte, error) {
-	return nil, ErrMemoryNotFound
-}
-
-func (m *VectorMemory) Set(ctx context.Context, key string, value []byte) error {
-	return nil
-}
-
-func (m *VectorMemory) Search(ctx context.Context, query string, limit int) ([]SearchResult, error) {
-	return nil, nil
-}

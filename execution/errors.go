@@ -11,9 +11,6 @@ var (
 	// ErrExecutionTimeout is returned when execution exceeds timeout.
 	ErrExecutionTimeout = errors.New("runtime: execution timeout")
 
-	// ErrCircuitOpen is returned when the circuit breaker is open.
-	ErrCircuitOpen = errors.New("runtime: circuit breaker open")
-
 	// ErrResourceExhausted is returned when resource limits are exceeded.
 	ErrResourceExhausted = errors.New("runtime: resource exhausted")
 

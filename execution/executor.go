@@ -46,9 +46,6 @@ type ExecutionResult struct {
 
 	// Duration is the actual execution time.
 	Duration time.Duration
-
-	// ResourceUsage tracks consumed resources.
-	ResourceUsage ResourceUsage
 }
 
 // ExecutionStatus indicates the outcome of execution.
@@ -61,13 +58,6 @@ const (
 	StatusCanceled ExecutionStatus = "canceled"
 	StatusRejected ExecutionStatus = "rejected" // policy denied
 )
-
-// ResourceUsage tracks execution resource consumption.
-type ResourceUsage struct {
-	CPUTimeMs  int64
-	MemoryMB   int64
-	TokensUsed int64
-}
 
 // SkillExecutor executes skills in a sandboxed environment.
 //
@@ -85,27 +75,3 @@ type SkillExecutor interface {
 	// ExecutePlan runs a multi-step execution plan using the provided context.
 	ExecutePlan(ctx context.Context, plan *ExecutionPlan, ec *ExecutionContext) error
 }
-
-// CircuitBreaker prevents cascading failures in execution.
-type CircuitBreaker interface {
-	// Allow checks if the circuit allows execution.
-	Allow(ctx context.Context, skillID string) (bool, error)
-
-	// RecordSuccess records a successful execution.
-	RecordSuccess(ctx context.Context, skillID string)
-
-	// RecordFailure records a failed execution.
-	RecordFailure(ctx context.Context, skillID string)
-
-	// State returns the current circuit state.
-	State(ctx context.Context, skillID string) (CircuitState, error)
-}
-
-// CircuitState indicates the circuit breaker state.
-type CircuitState string
-
-const (
-	CircuitClosed   CircuitState = "closed"    // normal operation
-	CircuitOpen     CircuitState = "open"      // blocking requests
-	CircuitHalfOpen CircuitState = "half_open" // testing recovery
-)
