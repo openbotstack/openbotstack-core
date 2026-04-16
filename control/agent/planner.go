@@ -15,6 +15,12 @@ import (
 //
 // The Planner is the ONLY component that decides which skill to invoke.
 // It produces a structured ExecutionPlan that the Executor will run.
+//
+// Deprecated: Use planner.ExecutionPlanner from the planner package instead.
+// This interface supports only single-skill selection. The planner package
+// supports multi-step execution plans with validation and bounded limits.
+// Migration path: replace agent.LLMPlanner with planner.LLMPlanner and
+// adapt DefaultAgent to consume execution.ExecutionPlan.
 type Planner interface {
 	// Plan analyzes user intent and produces an execution plan.
 	// Returns an ExecutionPlan specifying which skill to call and with what arguments.
@@ -22,6 +28,10 @@ type Planner interface {
 }
 
 // LLMPlanner implements Planner using the Model Router for skill selection.
+//
+// Deprecated: Use planner.LLMPlanner from the planner package instead.
+// This implementation only supports single-skill selection without
+// execution limits, persona injection, or memory context.
 type LLMPlanner struct {
 	router providers.ModelRouter
 }

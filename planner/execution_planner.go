@@ -1,3 +1,14 @@
+// Package planner provides the execution planning subsystem.
+//
+// This is the canonical planner package, supporting multi-step execution plans
+// with validation, bounded limits (max steps, tool calls, timeout), persona
+// injection, and memory context. It supersedes the agent.LLMPlanner in the
+// control/agent package, which only supports single-skill selection.
+//
+// Migration from agent.LLMPlanner:
+//   - Replace agent.NewLLMPlanner(router) with planner.NewLLMPlanner(router, nil)
+//   - Adapt consumers to use execution.ExecutionPlan instead of agent.ExecutionPlan
+//   - DefaultAgent needs refactoring to consume planner.ExecutionPlanner interface
 package planner
 
 import (
