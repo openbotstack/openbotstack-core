@@ -32,6 +32,11 @@ type ExecutionContext struct {
 	StartedAt time.Time
 	Deadline  time.Time
 
+	// Loop tracking (used by dual bounded loop kernel)
+	LoopMode         string // "single_pass" or "dual_loop"
+	CurrentTaskIndex int
+	CurrentTurn      int
+
 	// State (guarded by mutex)
 	mu      sync.RWMutex
 	results []StepResult

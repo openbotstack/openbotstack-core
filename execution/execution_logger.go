@@ -7,15 +7,20 @@ import (
 
 // ExecutionLogRecord represents a single log entry for an execution step.
 type ExecutionLogRecord struct {
-	RequestID   string    `json:"request_id"`
-	AssistantID string    `json:"assistant_id"`
-	StepName    string    `json:"step_name"`
-	StepType    string    `json:"step_type"`
-	Status      string    `json:"status"`
-	Output      any       `json:"output,omitempty"`
-	Error       string    `json:"error,omitempty"`
-	Duration    time.Duration `json:"duration_ms"`
-	Timestamp   time.Time `json:"timestamp"`
+	RequestID   string         `json:"request_id"`
+	AssistantID string         `json:"assistant_id"`
+	StepName    string         `json:"step_name"`
+	StepType    string         `json:"step_type"`
+	Status      string         `json:"status"`
+	Output      any            `json:"output,omitempty"`
+	Error       string         `json:"error,omitempty"`
+	Duration    time.Duration  `json:"duration_ms"`
+	Timestamp   time.Time      `json:"timestamp"`
+
+	// Loop tracking fields (omitted when not in dual-loop mode)
+	LoopMode   string `json:"loop_mode,omitempty"`
+	TaskIndex  *int   `json:"task_index,omitempty"`
+	TurnNumber *int   `json:"turn_number,omitempty"`
 }
 
 // ExecutionLogger defines the interface for recording execution events.

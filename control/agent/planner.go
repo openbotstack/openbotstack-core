@@ -55,6 +55,7 @@ func (p *LLMPlanner) Plan(ctx context.Context, runtime *assistant.AssistantRunti
 		Messages: []skills.Message{
 			{Role: "user", Content: prompt},
 		},
+		MaxTokens: 1024,
 	}
 	provider, err := p.router.Route(
 		[]skills.CapabilityType{skills.CapTextGeneration},
@@ -117,7 +118,9 @@ func (p *LLMPlanner) buildPrompt(req PlanRequest) string {
 Example response:
 {"skill_id": "core/summarize", "arguments": {"text": "...", "max_length": 200}, "reasoning": "User wants to summarize text"}
 
-Respond ONLY with the JSON object, no other text.`)
+Respond ONLY with the JSON object, no other text.
+
+/no_think`)
 
 	return sb.String()
 }

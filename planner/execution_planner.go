@@ -71,6 +71,7 @@ func (p *LLMPlanner) Plan(ctx context.Context, pCtx *PlannerContext) (*execution
 			{Role: "system", Content: pCtx.Soul.SystemPrompt},
 			{Role: "user", Content: prompt},
 		},
+		MaxTokens: 1024,
 	}
 
 	provider, err := p.router.Route(
@@ -151,7 +152,9 @@ Format:
       "arguments": {"arg": "value"}
     }
   ]
-}`)
+}
+
+/no_think`)
 
 	return sb.String()
 }

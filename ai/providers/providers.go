@@ -65,9 +65,10 @@ type chatChoice struct {
 }
 
 type chatResponseMessage struct {
-	Role      string              `json:"role"`
-	Content   string              `json:"content"`
-	ToolCalls []chatToolCall      `json:"tool_calls,omitempty"`
+	Role             string         `json:"role"`
+	Content          string         `json:"content"`
+	ReasoningContent string         `json:"reasoning_content,omitempty"`
+	ToolCalls        []chatToolCall `json:"tool_calls,omitempty"`
 }
 
 type chatToolCall struct {
