@@ -49,9 +49,17 @@ func TestHostAPIHTTPFetch(t *testing.T) {
 
 	resp, err := api.HTTPFetch(ctx, req)
 	if err != nil {
-		t.Logf("HTTPFetch returned error (expected for stub): %v", err)
-	} else if resp != nil && resp.StatusCode == 0 {
-		t.Error("Expected non-zero status code")
+		t.Fatalf("HTTPFetch returned unexpected error: %v", err)
+	}
+
+	// Core's HostAPI is an intentional stub (no network calls per AI_CONTRACT.md).
+	// The real HTTP execution lives in runtime/sandbox/wasm/hostapi_http.go and is
+	// wired via toolrunner/tool_invocation.WireHTTPFetch.
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected stub status 200, got %d", resp.StatusCode)
+	}
+	if string(resp.Body) != "stub response" {
+		t.Errorf("Expected stub body 'stub response', got %q", string(resp.Body))
 	}
 }
 

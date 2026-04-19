@@ -72,13 +72,19 @@ func (h *HostAPI) KVDelete(ctx context.Context, key string) error {
 }
 
 // HTTPFetch performs an HTTP request.
+//
+// This is an intentional stub. Core's AI_CONTRACT.md prohibits network calls
+// (except LLM providers per ADR-011), so this method returns a canned response.
+// The real implementation lives in runtime/sandbox/wasm/hostapi_http.go
+// (SandboxedHTTPClient) and is wired at startup via
+// toolrunner/tool_invocation.WireHTTPFetch, which replaces the runtime's
+// HostFunctions.HTTPFetch function field with the pipeline-backed handler.
+// Core's HostAPI is only used for standalone testing and as an interface reference.
 func (h *HostAPI) HTTPFetch(ctx context.Context, req HTTPRequest) (*HTTPResponse, error) {
 	if req.URL == "" {
 		return nil, ErrInvalidURL
 	}
 
-	// TODO: Wire to runtime/sandbox/wasm/hostapi_http.go SandboxedHTTPClient
-	// via toolrunner/tool_invocation pipeline. This stub returns a fake response.
 	return &HTTPResponse{
 		StatusCode: 200,
 		Headers:    map[string]string{},
