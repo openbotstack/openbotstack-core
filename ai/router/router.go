@@ -57,6 +57,15 @@ func (r *DefaultRouter) Route(requirements []skills.CapabilityType, constraints 
 	return nil, ai.ErrNoMatchingProvider
 }
 
+// Replace registers or replaces a provider in the router.
+// Unlike Register, this overwrites any existing provider with the same ID.
+// Use for runtime reconfiguration (e.g., admin API updates).
+func (r *DefaultRouter) Replace(provider providers.ModelProvider) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.providers[provider.ID()] = provider
+}
+
 // List returns all registered provider IDs.
 func (r *DefaultRouter) List() []string {
 	r.mu.RLock()
