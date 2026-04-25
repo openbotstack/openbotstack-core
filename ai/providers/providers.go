@@ -29,11 +29,12 @@ const (
 // ----- OpenAI-compatible request/response types -----
 
 type chatRequest struct {
-	Model       string        `json:"model"`
-	Messages    []chatMessage `json:"messages"`
-	MaxTokens   int           `json:"max_tokens,omitempty"`
-	Temperature *float64      `json:"temperature,omitempty"`
-	Tools       []chatTool    `json:"tools,omitempty"`
+	Model             string                 `json:"model"`
+	Messages          []chatMessage          `json:"messages"`
+	MaxTokens         int                    `json:"max_tokens,omitempty"`
+	Temperature       *float64               `json:"temperature,omitempty"`
+	Tools             []chatTool             `json:"tools,omitempty"`
+	ChatTemplateKwargs map[string]interface{} `json:"chat_template_kwargs,omitempty"`
 }
 
 type chatMessage struct {
@@ -158,6 +159,11 @@ func openAICompatibleGenerate(
 		Messages: messages,
 		Tools:    tools,
 	}
+	// Disable thinking mode for planning requests (JSON output required)
+	// Uses chat_template_kwargs for Qwen3-style models
+	if strings.Contains(strings.ToLower(model), "qwen") && req.MaxTokens > 2048 {
+		body.ChatTemplateKwargs = map[string]interface{}{"enable_thinking": false}
+	}
 	if req.MaxTokens > 0 {
 		body.MaxTokens = req.MaxTokens
 	}
@@ -237,6 +243,9 @@ func openAICompatibleGenerate(
 			if len(chatResp.Choices) > 0 {
 				choice := chatResp.Choices[0]
 				result.Content = choice.Message.Content
+				if result.Content == "" && choice.Message.ReasoningContent != "" {
+					result.Content = choice.Message.ReasoningContent
+				}
 				result.FinishReason = choice.FinishReason
 				for _, tc := range choice.Message.ToolCalls {
 					result.ToolCalls = append(result.ToolCalls, skills.ToolCall{
@@ -396,10 +405,8 @@ func (p *OpenAIProvider) Embed(ctx context.Context, texts []string) ([][]float32
 }
 
 // ClaudeProvider implements ModelProvider for Anthropic Claude models.
-// Claude uses the Messages API (/v1/messages) but this provider wraps it
-// via OpenAI-compatible proxies (e.g., LiteLLM, AWS Bedrock).
-// For direct Anthropic API access, set baseURL to a proxy that translates
-// OpenAI-format requests to Claude Messages format.
+// Uses the native Anthropic Messages API (/v1/messages).
+// Also implements StreamingModelProvider for SSE streaming support.
 type ClaudeProvider struct {
 	baseURL   string
 	apiKey    string
@@ -430,6 +437,7 @@ func (p *ClaudeProvider) Capabilities() []skills.CapabilityType {
 		skills.CapTextGeneration,
 		skills.CapToolCalling,
 		skills.CapVision,
+		skills.CapStreaming,
 	}
 }
 
@@ -437,11 +445,15 @@ func (p *ClaudeProvider) Generate(ctx context.Context, req skills.GenerateReques
 	if p.apiKey == "" {
 		return nil, fmt.Errorf("claude: API key not configured")
 	}
-	headers := map[string]string{
-		"x-api-key":         p.apiKey,
-		"anthropic-version": claudeAPIVersion,
+	return anthropicMessagesGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, req, 0)
+}
+
+// GenerateStream implements StreamingModelProvider for SSE streaming.
+func (p *ClaudeProvider) GenerateStream(ctx context.Context, req skills.GenerateRequest) (<-chan skills.StreamChunk, error) {
+	if p.apiKey == "" {
+		return nil, fmt.Errorf("claude: API key not configured")
 	}
-	return openAICompatibleGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, headers, req, 0)
+	return anthropicMessagesStream(ctx, p.client, p.baseURL, p.apiKey, p.modelName, req, 0)
 }
 
 func (p *ClaudeProvider) Embed(ctx context.Context, texts []string) ([][]float32, error) {

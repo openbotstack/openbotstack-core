@@ -563,13 +563,14 @@ func TestParseResponse_JSONWithLeadingTrailingSpaces(t *testing.T) {
 func TestParseResponse_CodeBlockWithExtraContent(t *testing.T) {
 	p := NewLLMPlanner(nil, nil)
 
-	// parseResponse only strips ```json / ``` prefixes/suffixes, it does not
-	// strip arbitrary text before a code block. Text before the block will
-	// cause a JSON parse error, which is the expected behavior.
+	// parseResponse now extracts JSON from within text (supports thinking models)
 	input := "Here is the plan:\n```json\n{\"assistant_id\":\"a1\",\"steps\":[{\"type\":\"skill\",\"name\":\"s1\",\"arguments\":{}}]}\n```"
-	_, err := p.parseResponse(input)
-	if err == nil {
-		t.Fatal("expected error for text before code block (parseResponse does not strip it)")
+	plan, err := p.parseResponse(input)
+	if err != nil {
+		t.Fatalf("should extract JSON from text with code block: %v", err)
+	}
+	if plan.AssistantID != "a1" {
+		t.Errorf("assistant_id = %q, want %q", plan.AssistantID, "a1")
 	}
 }
 

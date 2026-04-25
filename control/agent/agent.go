@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/openbotstack/openbotstack-core/assistant"
 	corecontext "github.com/openbotstack/openbotstack-core/context"
 	csSkills "github.com/openbotstack/openbotstack-core/control/skills"
@@ -94,6 +96,11 @@ func (a *DefaultAgent) SetContextAssembler(ca corecontext.ContextAssembler) {
 
 // HandleMessage implements Agent.
 func (a *DefaultAgent) HandleMessage(ctx context.Context, req MessageRequest) (*MessageResponse, error) {
+	// Auto-generate session ID if not provided
+	if req.SessionID == "" {
+		req.SessionID = uuid.NewString()
+	}
+
 	// Step 1: Gather available skills
 	skillDescriptors, err := a.gatherSkillDescriptors()
 	if err != nil {

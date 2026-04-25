@@ -71,7 +71,7 @@ func (p *LLMPlanner) Plan(ctx context.Context, pCtx *PlannerContext) (*execution
 			{Role: "system", Content: pCtx.Soul.SystemPrompt},
 			{Role: "user", Content: prompt},
 		},
-		MaxTokens: 1024,
+		MaxTokens: 8192,
 	}
 
 	provider, err := p.router.Route(
@@ -110,7 +110,7 @@ func (p *LLMPlanner) Plan(ctx context.Context, pCtx *PlannerContext) (*execution
 func (p *LLMPlanner) buildPrompt(pCtx *PlannerContext) string {
 	var sb strings.Builder
 
-	sb.WriteString("You are an execution planner. Create a deterministic execution plan to handle the user's request.\n")
+	sb.WriteString("You are an execution planner. Create a deterministic execution plan to handle the user's request.\n/no_think\n")
 	
 	if pCtx.Soul.Personality != "" {
 		fmt.Fprintf(&sb, "\nPersonality: %s\n", pCtx.Soul.Personality)
@@ -168,9 +168,19 @@ func (p *LLMPlanner) parseResponse(response string) (*execution.ExecutionPlan, e
 	response = strings.TrimSpace(response)
 
 	var plan execution.ExecutionPlan
-	if err := json.Unmarshal([]byte(response), &plan); err != nil {
-		return nil, fmt.Errorf("invalid json: %w (response: %s)", err, response)
+	if err := json.Unmarshal([]byte(response), &plan); err == nil {
+		return &plan, nil
 	}
 
-	return &plan, nil
+	// Fallback: extract JSON object from within text (handles thinking models)
+	start := strings.Index(response, "{")
+	end := strings.LastIndex(response, "}")
+	if start >= 0 && end > start {
+		extracted := response[start : end+1]
+		if err := json.Unmarshal([]byte(extracted), &plan); err == nil {
+			return &plan, nil
+		}
+	}
+
+	return nil, fmt.Errorf("invalid json: could not extract plan from response (length=%d)", len(response))
 }

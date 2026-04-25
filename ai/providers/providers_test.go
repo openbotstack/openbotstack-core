@@ -28,6 +28,7 @@ func TestClaudeProviderCapabilities(t *testing.T) {
 		skills.CapTextGeneration,
 		skills.CapToolCalling,
 		skills.CapVision,
+		skills.CapStreaming,
 	}
 
 	if len(caps) != len(expected) {

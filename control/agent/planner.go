@@ -16,20 +16,16 @@ import (
 // The Planner is the ONLY component that decides which skill to invoke.
 // It produces a structured ExecutionPlan that the Executor will run.
 //
-// Deprecated: Use planner.ExecutionPlanner from the planner package instead.
+// Deprecated: Use planner.ExecutionPlanner from the planner package for new code.
 // This interface supports only single-skill selection. The planner package
 // supports multi-step execution plans with validation and bounded limits.
-// Migration path: replace agent.LLMPlanner with planner.LLMPlanner and
-// adapt DefaultAgent to consume execution.ExecutionPlan.
 type Planner interface {
-	// Plan analyzes user intent and produces an execution plan.
-	// Returns an ExecutionPlan specifying which skill to call and with what arguments.
 	Plan(ctx context.Context, runtime *assistant.AssistantRuntime, req PlanRequest) (*ExecutionPlan, error)
 }
 
 // LLMPlanner implements Planner using the Model Router for skill selection.
 //
-// Deprecated: Use planner.LLMPlanner from the planner package instead.
+// Deprecated: Use planner.LLMPlanner from the planner package for new code.
 // This implementation only supports single-skill selection without
 // execution limits, persona injection, or memory context.
 type LLMPlanner struct {
@@ -47,15 +43,13 @@ func (p *LLMPlanner) Plan(ctx context.Context, runtime *assistant.AssistantRunti
 		return nil, ErrNoSkillsAvailable
 	}
 
-	// Build the prompt for the LLM
 	prompt := p.buildPrompt(req)
 
-	// Call the LLM using the model router
 	mReq := skills.GenerateRequest{
 		Messages: []skills.Message{
 			{Role: "user", Content: prompt},
 		},
-		MaxTokens: 1024,
+		MaxTokens: 8192,
 	}
 	provider, err := p.router.Route(
 		[]skills.CapabilityType{skills.CapTextGeneration},
@@ -70,7 +64,6 @@ func (p *LLMPlanner) Plan(ctx context.Context, runtime *assistant.AssistantRunti
 		return nil, fmt.Errorf("%w: %v", ErrPlanningFailed, err)
 	}
 
-	// Parse the LLM response into an ExecutionPlan
 	plan, err := p.parseResponse(response.Content)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to parse LLM response: %v", ErrPlanningFailed, err)
@@ -83,7 +76,6 @@ func (p *LLMPlanner) Plan(ctx context.Context, runtime *assistant.AssistantRunti
 	return plan, nil
 }
 
-// buildPrompt constructs the LLM prompt for skill selection.
 func (p *LLMPlanner) buildPrompt(req PlanRequest) string {
 	var sb strings.Builder
 
@@ -98,7 +90,6 @@ func (p *LLMPlanner) buildPrompt(req PlanRequest) string {
 		}
 	}
 
-	// Inject conversation history context
 	if len(req.ConversationHistory) > 0 {
 		sb.WriteString("\nPrevious conversation:\n")
 		for _, msg := range req.ConversationHistory {
@@ -125,9 +116,7 @@ Respond ONLY with the JSON object, no other text.
 	return sb.String()
 }
 
-// parseResponse extracts an ExecutionPlan from the LLM response.
 func (p *LLMPlanner) parseResponse(response string) (*ExecutionPlan, error) {
-	// Clean up the response - LLMs sometimes wrap JSON in markdown
 	response = strings.TrimSpace(response)
 	response = strings.TrimPrefix(response, "```json")
 	response = strings.TrimPrefix(response, "```")
@@ -135,9 +124,18 @@ func (p *LLMPlanner) parseResponse(response string) (*ExecutionPlan, error) {
 	response = strings.TrimSpace(response)
 
 	var plan ExecutionPlan
-	if err := json.Unmarshal([]byte(response), &plan); err != nil {
-		return nil, fmt.Errorf("invalid JSON: %w (response: %s)", err, response)
+	if err := json.Unmarshal([]byte(response), &plan); err == nil {
+		return &plan, nil
 	}
 
-	return &plan, nil
+	start := strings.Index(response, "{")
+	end := strings.LastIndex(response, "}")
+	if start >= 0 && end > start {
+		extracted := response[start : end+1]
+		if err := json.Unmarshal([]byte(extracted), &plan); err == nil {
+			return &plan, nil
+		}
+	}
+
+	return nil, fmt.Errorf("invalid json: could not extract plan from response (length=%d)", len(response))
 }
