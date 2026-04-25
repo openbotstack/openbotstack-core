@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/openbotstack/openbotstack-core/assistant"
+	"github.com/openbotstack/openbotstack-core/audit"
 	corecontext "github.com/openbotstack/openbotstack-core/context"
 	csSkills "github.com/openbotstack/openbotstack-core/control/skills"
 	"github.com/openbotstack/openbotstack-core/execution"
@@ -63,7 +64,8 @@ type DefaultAgent struct {
 	runtime            *assistant.AssistantRuntime
 	conversationStore  ConversationStore
 	maxHistoryMessages int
-	contextAssembler   corecontext.ContextAssembler // optional pre-planning context enrichment
+	contextAssembler   corecontext.ContextAssembler
+	auditEmitter       *audit.AuditEmitter
 }
 
 // NewDefaultAgent creates a new Agent with the given dependencies.
@@ -92,6 +94,11 @@ func (a *DefaultAgent) SetMaxHistoryMessages(n int) {
 // If set, the assembler enriches the conversation history with persona and memory context.
 func (a *DefaultAgent) SetContextAssembler(ca corecontext.ContextAssembler) {
 	a.contextAssembler = ca
+}
+
+// SetAuditEmitter configures the audit emitter for structured event publishing.
+func (a *DefaultAgent) SetAuditEmitter(e *audit.AuditEmitter) {
+	a.auditEmitter = e
 }
 
 // HandleMessage implements Agent.
@@ -134,6 +141,13 @@ func (a *DefaultAgent) HandleMessage(ctx context.Context, req MessageRequest) (*
 			skillMsgs,
 		)
 		if err != nil {
+			if a.auditEmitter != nil {
+				a.auditEmitter.Emit(ctx, audit.AuditEvent{
+					Action:  "agent.context_assembly_failed",
+					Outcome: "failure",
+					Metadata: map[string]string{"error": err.Error()},
+				})
+			}
 			slog.WarnContext(ctx, "agent: context assembly failed, using raw history",
 				"error", err)
 		} else if assembled != nil && len(assembled.Messages) > 0 {
@@ -231,6 +245,14 @@ func (a *DefaultAgent) storeMessages(ctx context.Context, req MessageRequest, re
 		Content:   req.Message,
 		Timestamp: now,
 	}); err != nil {
+		if a.auditEmitter != nil {
+			a.auditEmitter.Emit(ctx, audit.AuditEvent{
+				Action:   "agent.store_user_message_failed",
+				Outcome:  "failure",
+				Resource: req.SessionID,
+				Metadata: map[string]string{"error": err.Error()},
+			})
+		}
 		slog.WarnContext(ctx, "agent: failed to store user message",
 			"session_id", req.SessionID, "error", err)
 	}
@@ -244,6 +266,14 @@ func (a *DefaultAgent) storeMessages(ctx context.Context, req MessageRequest, re
 		Content:   resp.Message,
 		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 	}); err != nil {
+		if a.auditEmitter != nil {
+			a.auditEmitter.Emit(ctx, audit.AuditEvent{
+				Action:   "agent.store_assistant_message_failed",
+				Outcome:  "failure",
+				Resource: req.SessionID,
+				Metadata: map[string]string{"error": err.Error()},
+			})
+		}
 		slog.WarnContext(ctx, "agent: failed to store assistant message",
 			"session_id", req.SessionID, "error", err)
 	}
