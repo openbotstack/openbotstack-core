@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"sync"
+
+	"github.com/google/uuid"
 )
 
 // AuditSubscriber receives audit events in real-time.
@@ -35,7 +37,7 @@ func (e *AuditEmitter) Emit(ctx context.Context, event AuditEvent) error {
 
 	// Auto-generate event ID if empty
 	if event.ID == "" {
-		event.ID = fmt.Sprintf("auto-%d", len(event.Action))
+		event.ID = uuid.NewString()
 	}
 
 	e.mu.RLock()

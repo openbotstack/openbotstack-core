@@ -14,6 +14,9 @@ var (
 	// ErrEmptyAssistantID is returned when plan has no assistant ID.
 	ErrEmptyAssistantID = errors.New("planner: plan has empty assistant ID")
 
+	// ErrEmptySteps is returned when the plan has no steps.
+	ErrEmptySteps = errors.New("planner: plan must have at least one step")
+
 	// ErrTooManySteps is returned when the plan exceeds maximum allowed steps.
 	ErrTooManySteps = errors.New("planner: plan exceeds maximum allowed steps")
 
@@ -50,6 +53,10 @@ func (v *Validator) Validate(plan *execution.ExecutionPlan) error {
 
 	if plan.AssistantID == "" {
 		return ErrEmptyAssistantID
+	}
+
+	if len(plan.Steps) == 0 {
+		return ErrEmptySteps
 	}
 
 	if len(plan.Steps) > v.limits.MaxSteps {

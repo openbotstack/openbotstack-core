@@ -3,6 +3,7 @@ package assistant
 import (
 	"context"
 	"errors"
+	"sync"
 )
 
 var (
@@ -24,6 +25,7 @@ type AssistantMemory interface {
 
 // SessionMemory is an ephemeral, request-scoped memory implementation.
 type SessionMemory struct {
+	mu   sync.RWMutex
 	data map[string][]byte
 }
 
@@ -32,6 +34,8 @@ func NewSessionMemory() *SessionMemory {
 }
 
 func (m *SessionMemory) Get(ctx context.Context, key string) ([]byte, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	val, ok := m.data[key]
 	if !ok {
 		return nil, ErrMemoryNotFound
@@ -40,7 +44,16 @@ func (m *SessionMemory) Get(ctx context.Context, key string) ([]byte, error) {
 }
 
 func (m *SessionMemory) Set(ctx context.Context, key string, value []byte) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.data[key] = value
+	return nil
+}
+
+func (m *SessionMemory) Delete(ctx context.Context, key string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.data, key)
 	return nil
 }
 

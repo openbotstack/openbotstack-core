@@ -2,7 +2,7 @@
 //
 // "Memory" in OpenBotStack is:
 //   - Short-term: Current conversation context
-//   - Long-term: Vector-stored knowledge (Milvus abstraction)
+//   - Long-term: Vector-stored knowledge (pgvector abstraction)
 //   - Entity: Structured facts about known entities
 //
 // This package defines interfaces ONLY. The actual storage

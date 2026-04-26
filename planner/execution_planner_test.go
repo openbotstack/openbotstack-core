@@ -219,14 +219,18 @@ func TestValidator_MaxToolCallsExceeded(t *testing.T) {
 	}
 }
 
-func TestValidator_EmptyStepsValid(t *testing.T) {
+func TestValidator_EmptyStepsInvalid(t *testing.T) {
 	v := NewValidator(nil)
 	plan := &execution.ExecutionPlan{
 		AssistantID: "asst",
 		Steps:       []execution.ExecutionStep{},
 	}
-	if err := v.Validate(plan); err != nil {
-		t.Fatalf("empty steps should be valid (no steps to check), got: %v", err)
+	err := v.Validate(plan)
+	if err == nil {
+		t.Fatal("expected error for empty steps, got nil")
+	}
+	if err != ErrEmptySteps {
+		t.Errorf("expected ErrEmptySteps, got: %v", err)
 	}
 }
 

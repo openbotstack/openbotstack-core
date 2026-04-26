@@ -13,6 +13,7 @@ import (
 	corecontext "github.com/openbotstack/openbotstack-core/context"
 	csSkills "github.com/openbotstack/openbotstack-core/control/skills"
 	"github.com/openbotstack/openbotstack-core/execution"
+	"github.com/openbotstack/openbotstack-core/planner"
 	"github.com/openbotstack/openbotstack-core/registry/skills"
 )
 
@@ -59,6 +60,7 @@ type ExecutionMeta struct {
 // DefaultAgent is the standard Agent implementation.
 type DefaultAgent struct {
 	planner            Planner
+	newPlanner         planner.ExecutionPlanner
 	executor           PlanExecutor
 	registry           SkillRegistry
 	runtime            *assistant.AssistantRuntime
@@ -101,6 +103,12 @@ func (a *DefaultAgent) SetAuditEmitter(e *audit.AuditEmitter) {
 	a.auditEmitter = e
 }
 
+// SetExecutionPlanner configures the new planner.ExecutionPlanner.
+// When set, DefaultAgent uses it instead of the deprecated agent.Planner.
+func (a *DefaultAgent) SetExecutionPlanner(p planner.ExecutionPlanner) {
+	a.newPlanner = p
+}
+
 // HandleMessage implements Agent.
 func (a *DefaultAgent) HandleMessage(ctx context.Context, req MessageRequest) (*MessageResponse, error) {
 	// Auto-generate session ID if not provided
@@ -125,7 +133,7 @@ func (a *DefaultAgent) HandleMessage(ctx context.Context, req MessageRequest) (*
 	}
 
 	// Step 2.5: Enrich history via ContextAssembler (best-effort)
-	if a.contextAssembler != nil {
+	if a.contextAssembler != nil && a.runtime != nil {
 		skillMsgs := agentMsgsToSkillMsgs(conversationHistory)
 		assembled, err := a.contextAssembler.Assemble(ctx,
 			corecontext.AssistantContext{
@@ -156,15 +164,42 @@ func (a *DefaultAgent) HandleMessage(ctx context.Context, req MessageRequest) (*
 	}
 
 	// Step 3: Plan via LLM
-	planReq := PlanRequest{
-		UserMessage:         req.Message,
-		AvailableSkills:     skillDescriptors,
-		ConversationHistory: conversationHistory,
-	}
+	var plan *ExecutionPlan
 
-	plan, err := a.planner.Plan(ctx, a.runtime, planReq)
-	if err != nil {
-		return nil, fmt.Errorf("agent: planning failed: %w", err)
+	if a.newPlanner != nil {
+		if a.runtime == nil {
+			return nil, fmt.Errorf("agent: runtime is required for execution planning")
+		}
+		pCtx := &planner.PlannerContext{
+			AssistantID: a.runtime.AssistantID,
+			Soul:        a.runtime.Soul,
+			Skills:      agentSkillDescsToPlannerDescs(skillDescriptors),
+			UserRequest: req.Message,
+		}
+		execPlan, err := a.newPlanner.Plan(ctx, pCtx)
+		if err != nil {
+			return nil, fmt.Errorf("agent: planning failed: %w", err)
+		}
+		if err := execPlan.Validate(); err != nil {
+			return nil, fmt.Errorf("agent: invalid plan: %w", err)
+		}
+		step := execPlan.Steps[0]
+		plan = &ExecutionPlan{
+			SkillID:   step.Name,
+			Arguments: step.Arguments,
+			Reasoning: execPlan.Reasoning,
+		}
+	} else {
+		planReq := PlanRequest{
+			UserMessage:         req.Message,
+			AvailableSkills:     skillDescriptors,
+			ConversationHistory: conversationHistory,
+		}
+		var err error
+		plan, err = a.planner.Plan(ctx, a.runtime, planReq)
+		if err != nil {
+			return nil, fmt.Errorf("agent: planning failed: %w", err)
+		}
 	}
 
 	// Step 4: Validate plan
@@ -302,6 +337,19 @@ func skillIDsFromDescriptors(descs []SkillDescriptor) []string {
 		ids = append(ids, d.ID)
 	}
 	return ids
+}
+
+func agentSkillDescsToPlannerDescs(descs []SkillDescriptor) []planner.SkillDescriptor {
+	result := make([]planner.SkillDescriptor, 0, len(descs))
+	for _, d := range descs {
+		result = append(result, planner.SkillDescriptor{
+			ID:          d.ID,
+			Name:        d.Name,
+			Description: d.Description,
+			InputSchema: d.InputSchema,
+		})
+	}
+	return result
 }
 
 // agentMsgsToSkillMsgs converts agent.Message slice to control/skills.Message slice.
