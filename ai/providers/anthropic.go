@@ -18,12 +18,14 @@ import (
 
 // anthropicMessagesRequest is the request body for POST /v1/messages.
 type anthropicMessagesRequest struct {
-	Model     string                    `json:"model"`
-	MaxTokens int                       `json:"max_tokens"`
-	System    string                    `json:"system,omitempty"`
-	Messages  []anthropicMessage        `json:"messages"`
-	Tools     []anthropicToolDefinition `json:"tools,omitempty"`
-	Stream    bool                      `json:"stream,omitempty"`
+	Model                string                    `json:"model"`
+	MaxTokens            int                       `json:"max_tokens"`
+	System               string                    `json:"system,omitempty"`
+	Messages             []anthropicMessage        `json:"messages"`
+	Tools                []anthropicToolDefinition `json:"tools,omitempty"`
+	ToolChoice           any                       `json:"tool_choice,omitempty"`
+	DisableParallelUse   *bool                     `json:"disable_parallel_tool_use,omitempty"`
+	Stream               bool                      `json:"stream,omitempty"`
 
 	Temperature *float64 `json:"temperature,omitempty"`
 }
@@ -120,6 +122,12 @@ func anthropicMessagesGenerate(
 	if req.Temperature > 0 {
 		temp := req.Temperature
 		body.Temperature = &temp
+	}
+	body.ToolChoice = mapToolChoiceToAnthropic(req.ToolChoice)
+	// Anthropic uses inverted logic: disable_parallel_tool_use=true means no parallel
+	if req.ParallelToolCalls != nil && !*req.ParallelToolCalls {
+		disabled := true
+		body.DisableParallelUse = &disabled
 	}
 
 	payload, err := json.Marshal(body)

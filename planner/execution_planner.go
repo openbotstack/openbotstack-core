@@ -37,12 +37,12 @@ type ExecutionPlanner interface {
 }
 
 // SkillDescriptor describes a skill for LLM context building.
-type SkillDescriptor struct {
-	ID          string             `json:"id"`
-	Name        string             `json:"name"`
-	Description string             `json:"description"`
-	InputSchema *skills.JSONSchema `json:"input_schema,omitempty"`
-}
+// Alias to skills.SkillDescriptor — the canonical definition lives in the
+// control/skills package to avoid duplication across planner and agent packages.
+type SkillDescriptor = skills.SkillDescriptor
+
+// ProgressFn is the callback signature for planner progress events.
+type ProgressFn func(eventType, content string)
 
 // LLMPlanner implements ExecutionPlanner using an LLM provider to generate JSON plans.
 type LLMPlanner struct {
@@ -59,8 +59,10 @@ func NewLLMPlanner(router providers.ModelRouter, limits *ExecutionLimits) *LLMPl
 }
 
 // Plan uses the assembled context to generate a validated execution plan.
+// If the provider supports streaming, it uses streaming to allow progress feedback
+// during the LLM planning call. Otherwise falls back to synchronous Generate.
 func (p *LLMPlanner) Plan(ctx context.Context, pCtx *PlannerContext) (*execution.ExecutionPlan, error) {
-	if len(pCtx.Skills) == 0 {
+	if len(pCtx.Skills) == 0 && len(pCtx.Capabilities) == 0 {
 		return nil, ErrNoSkillsAvailable
 	}
 
@@ -85,18 +87,52 @@ func (p *LLMPlanner) Plan(ctx context.Context, pCtx *PlannerContext) (*execution
 	planCtx, cancel := context.WithTimeout(ctx, p.validator.limits.MaxExecutionTime)
 	defer cancel()
 
-	response, err := provider.Generate(planCtx, mReq)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrPlanningFailed, err)
+	var responseContent string
+
+	// Try streaming first for progress feedback during planning.
+	if sp, ok := provider.(providers.StreamingModelProvider); ok && pCtx.ProgressFn != nil {
+		pCtx.ProgressFn("planning_generating", "")
+		ch, err := sp.GenerateStream(planCtx, mReq)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrPlanningFailed, err)
+		}
+		var buf strings.Builder
+		for chunk := range ch {
+			if chunk.Error != nil {
+				return nil, fmt.Errorf("%w: %v", ErrPlanningFailed, chunk.Error)
+			}
+			if chunk.Content != "" {
+				buf.WriteString(chunk.Content)
+				// Forward each token as a planning_token event so any SSE client
+				// receives real-time feedback during the planning phase.
+				pCtx.ProgressFn("planning_token", chunk.Content)
+			}
+		}
+		responseContent = buf.String()
+		if pCtx.ProgressFn != nil {
+			pCtx.ProgressFn("planning_complete", "")
+		}
+	} else {
+		response, err := provider.Generate(planCtx, mReq)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrPlanningFailed, err)
+		}
+		responseContent = response.Content
 	}
 
-	plan, err := p.parseResponse(response.Content)
+	plan, err := p.parseResponse(responseContent)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to parse LLM response: %v", ErrPlanningFailed, err)
 	}
 
 	if plan.AssistantID == "" {
 		plan.AssistantID = pCtx.AssistantID
+	}
+
+	// Empty plan is the cooperative stop signal — skip validation and return as-is.
+	// The inner loop checks len(plan.Steps) == 0 to decide plannerStopped.
+	if len(plan.Steps) == 0 {
+		return plan, nil
 	}
 
 	if err := p.validator.Validate(plan); err != nil {
@@ -128,33 +164,67 @@ func (p *LLMPlanner) buildPrompt(pCtx *PlannerContext) string {
 	}
 
 	sb.WriteString("\nAvailable skills/tools:\n")
-	for _, skill := range pCtx.Skills {
-		schemaJSON := "{}"
-		if skill.InputSchema != nil {
-			bytes, _ := json.Marshal(skill.InputSchema)
-			schemaJSON = string(bytes)
+	var specs []ToolSpec
+	if len(pCtx.Capabilities) > 0 {
+		for _, cap := range pCtx.Capabilities {
+			specs = append(specs, CapabilityToToolSpec(cap))
 		}
-		fmt.Fprintf(&sb, "- %s (%s): %s\n  Input schema: %s\n", skill.ID, skill.Name, skill.Description, schemaJSON)
+	} else {
+		for _, skill := range pCtx.Skills {
+			specs = append(specs, SchemaToToolSpec(skill))
+		}
 	}
+	sb.WriteString(FormatToolSpecs(specs))
 
-	sb.WriteString("\nUser request: ")
-	sb.WriteString(pCtx.UserRequest)
-	sb.WriteString("\n\n")
+	// Structural boundary: wrap user input in XML tags to prevent
+	// prompt injection. Escape XML special characters within user content.
+	userInput := pCtx.UserRequest
+	userInput = strings.ReplaceAll(userInput, "&", "&amp;")
+	userInput = strings.ReplaceAll(userInput, "<", "&lt;")
+	userInput = strings.ReplaceAll(userInput, ">", "&gt;")
+	sb.WriteString("\n<user_request>\n")
+	sb.WriteString(userInput)
+	sb.WriteString("\n</user_request>\n\n")
 
 	sb.WriteString(`Respond with a JSON object containing the execution plan. Do not include any other text or reasoning.
-Format:
-{
-  "assistant_id": "...",
-  "steps": [
-    {
-      "type": "skill", // or "tool"
-      "name": "namespace/skill_name",
-      "arguments": {"arg": "value"}
-    }
-  ]
-}
+	Format:
+	{
+	  "assistant_id": "...",
+	  "steps": [
+	    {
+	      "type": "tool",
+	      "name": "mcp.server.tool_name",
+	      "arguments": {"param": "value"}
+	    },
+	    {
+	      "type": "skill",
+	      "name": "skill_name",
+	      "arguments": {"param": "{{mcp.server.tool_name.result}}"}
+	    }
+	  ]
+	}
 
-/no_think`)
+	IMPORTANT rules:
+	- Use "type": "tool" for tools (IDs starting with "mcp."). Use "type": "skill" for skills.
+	- When the user mentions a patient or medical data, ALWAYS first call the relevant mcp.* tools to fetch real data, then pass results to a skill.
+	- NEVER skip tool calls and go directly to a skill if relevant mcp.* tools exist for the required data.
+		- ALWAYS end the plan with a skill step when tool calls are present — skills format data for the user. Never end a plan with only tool calls.
+	- Chain tool calls before skills: fetch data with tools, then pass results to skills via {{step_name}}.
+	- Reference outputs from earlier steps using {{step_name}} in argument values.
+	- If a step returns a JSON object, use dot notation: {{step_name.field}}.
+	- Example plan for patient handover:
+	  {"type":"tool","name":"mcp.his.query_patient","arguments":{"patient_id":"P001"}}
+	  {"type":"tool","name":"mcp.vitals.get_vitals","arguments":{"patient_id":"P001"}}
+	  {"type":"skill","name":"sbar-handover","arguments":{"patient_data":"{{mcp.his.query_patient}}","vitals":"{{mcp.vitals.get_vitals}}"}}
+	- Example plan for first day note:
+		  {"type":"tool","name":"mcp.his.get_patient_demographics","arguments":{"patient_id":"P001"}}
+		  {"type":"tool","name":"mcp.his.get_diagnosis","arguments":{"patient_id":"P001"}}
+		  {"type":"tool","name":"mcp.lis.get_lab_results","arguments":{"patient_id":"P001"}}
+		  {"type":"tool","name":"mcp.vitals.get_vitals","arguments":{"patient_id":"P001"}}
+		  {"type":"skill","name":"medical.first-day-note","arguments":{"patient_data":"{{mcp.his.get_patient_demographics}}","diagnosis":"{{mcp.his.get_diagnosis}}","lab_results":"{{mcp.lis.get_lab_results}}","vitals":"{{mcp.vitals.get_vitals}}"}}
+		- Always generate at least one step. If no tools are relevant, generate a single skill step.
+
+	/no_think`)
 
 	return sb.String()
 }

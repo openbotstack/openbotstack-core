@@ -39,10 +39,11 @@ type ConversationStore interface {
 
 // SessionMessage is a single message to be persisted.
 type SessionMessage struct {
-	TenantID  string // tenant isolation key
-	UserID    string // user who sent the message
-	SessionID string // conversation session identifier
-	Role      string // "user", "assistant", "system"
-	Content   string // message body
-	Timestamp string // RFC3339Nano
+	TenantID    string // tenant isolation key
+	UserID      string // user who sent the message
+	SessionID   string // conversation session identifier
+	Role        string // "user", "assistant", "system"
+	Content     string // message body
+	Timestamp   string // RFC3339Nano
+	ExecutionID string // execution ID for reasoning visualization (assistant messages only)
 }

@@ -4,7 +4,7 @@ Control Plane for OpenBotStack — interfaces, state machines, skill registry, p
 
 ## Role
 
-Core defines the **contracts and orchestration logic** that all other planes depend on. It contains no executable entrypoints, no network calls, and no side effects. Runtime and Apps implement the interfaces defined here.
+Core defines the **contracts and orchestration logic** that all other planes depend on. It contains no executable entrypoints and no side effects. Runtime and Apps implement the interfaces defined here.
 
 ## Architecture
 
@@ -36,8 +36,11 @@ type Skill interface {
     ID() string
     Name() string
     Description() string
-    Capabilities() []string
-    Execute(ctx context.Context, input []byte) ([]byte, error)
+    InputSchema() *JSONSchema
+    OutputSchema() *JSONSchema
+    RequiredPermissions() []string
+    Timeout() time.Duration
+    Validate() error
 }
 ```
 
@@ -48,10 +51,13 @@ type ModelProvider interface {
     ID() string
     Capabilities() []CapabilityType
     Generate(ctx context.Context, req GenerateRequest) (*GenerateResponse, error)
+    Embed(ctx context.Context, texts []string) ([][]float32, error)
 }
 
 type ModelRouter interface {
     Route(requirements []CapabilityType, constraints ModelConstraints) (ModelProvider, error)
+    Register(provider ModelProvider) error
+    List() []string
 }
 ```
 
@@ -67,10 +73,12 @@ type ExecutionPlanner interface {
 
 ```go
 type MemoryManager interface {
-    StoreShortTerm(ctx context.Context, key, content string) error
-    StoreLongTerm(ctx context.Context, content string, tags []string) error
+    StoreShortTerm(ctx context.Context, entry MemoryEntry) error
+    StoreLongTerm(ctx context.Context, entry MemoryEntry) error
     RetrieveSimilar(ctx context.Context, query string, limit int) ([]MemoryEntry, error)
-    Clear(ctx context.Context, key string) error
+    RetrieveByTag(ctx context.Context, tags []string, limit int) ([]MemoryEntry, error)
+    Forget(ctx context.Context, id string) error
+    Summarize(ctx context.Context, entries []MemoryEntry) (MemoryEntry, error)
 }
 ```
 
@@ -80,7 +88,7 @@ type MemoryManager interface {
 Idle → Planning → Executing → Reflecting → Finalizing → Completed
                    ↑              │
                    └──────────────┘ (bounded by maxReflections)
-Any state → Error (on failure)
+Any state → Failed (on error)
 ```
 
 ## Dependencies
@@ -102,7 +110,7 @@ make tidy   # go mod tidy
 
 See [AI_CONTRACT.md](./AI_CONTRACT.md) for architectural boundaries.
 
-**Core MUST NOT contain:** executable entrypoints, tool execution, network calls, side effects, infrastructure-specific code.
+**Core MUST NOT contain:** executable entrypoints, tool execution, side effects, infrastructure-specific code. Exception: LLM provider adapters may perform network calls (ADR-011).
 
 ## Dependency Chain
 

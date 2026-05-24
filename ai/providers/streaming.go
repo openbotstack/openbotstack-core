@@ -89,6 +89,12 @@ func openAICompatibleStream(
 		Stream:        true,
 		StreamOptions: &streamOptions{IncludeUsage: true},
 	}
+	// Disable thinking mode for Qwen3-style models.
+	// Thinking mode outputs internal reasoning before the actual response,
+	// which breaks structured output and causes timeouts.
+	if strings.Contains(strings.ToLower(model), "qwen") {
+		body.ChatTemplateKwargs = map[string]interface{}{"enable_thinking": false}
+	}
 	if req.MaxTokens > 0 {
 		body.MaxTokens = req.MaxTokens
 	}
@@ -96,6 +102,8 @@ func openAICompatibleStream(
 		temp := req.Temperature
 		body.Temperature = &temp
 	}
+	body.ToolChoice = mapToolChoiceToOpenAI(req.ToolChoice)
+	body.ParallelToolCalls = req.ParallelToolCalls
 
 	payload, err := json.Marshal(body)
 	if err != nil {

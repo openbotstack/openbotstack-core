@@ -45,7 +45,7 @@ type SkillRegistry interface {
 // PlanExecutor executes validated execution plans.
 type PlanExecutor interface {
 	// ExecuteFromPlan runs a skill based on the execution plan.
-	ExecuteFromPlan(ctx context.Context, plan *ExecutionPlan, meta ExecutionMeta) (*execution.ExecutionResult, error)
+	ExecuteFromPlan(ctx context.Context, plan *execution.ExecutionPlan, meta ExecutionMeta) (*execution.ExecutionResult, error)
 }
 
 // ExecutionMeta contains metadata for execution tracking.
@@ -57,10 +57,24 @@ type ExecutionMeta struct {
 	AssistantID string
 }
 
+// AgentConfig holds all dependencies for constructing a DefaultAgent.
+// Required fields must be non-nil; optional fields may be nil.
+type AgentConfig struct {
+	Planner   planner.ExecutionPlanner
+	Executor  PlanExecutor
+	Registry  SkillRegistry
+	Runtime   *assistant.AssistantRuntime
+
+	// Optional dependencies (nil = feature disabled)
+	ConversationStore ConversationStore
+	ContextAssembler  corecontext.ContextAssembler
+	AuditEmitter      *audit.AuditEmitter
+	MaxHistoryMessages int // defaults to 50 if zero
+}
+
 // DefaultAgent is the standard Agent implementation.
 type DefaultAgent struct {
-	planner            Planner
-	newPlanner         planner.ExecutionPlanner
+	executionPlanner   planner.ExecutionPlanner
 	executor           PlanExecutor
 	registry           SkillRegistry
 	runtime            *assistant.AssistantRuntime
@@ -70,19 +84,25 @@ type DefaultAgent struct {
 	auditEmitter       *audit.AuditEmitter
 }
 
-// NewDefaultAgent creates a new Agent with the given dependencies.
-func NewDefaultAgent(planner Planner, executor PlanExecutor, registry SkillRegistry, runtime *assistant.AssistantRuntime) *DefaultAgent {
+// NewDefaultAgent creates a new Agent from an AgentConfig.
+func NewDefaultAgent(cfg AgentConfig) *DefaultAgent {
+	maxHist := cfg.MaxHistoryMessages
+	if maxHist <= 0 {
+		maxHist = 50
+	}
 	return &DefaultAgent{
-		planner:            planner,
-		executor:           executor,
-		registry:           registry,
-		runtime:            runtime,
-		maxHistoryMessages: 50,
+		executionPlanner:  cfg.Planner,
+		executor:          cfg.Executor,
+		registry:          cfg.Registry,
+		runtime:           cfg.Runtime,
+		conversationStore: cfg.ConversationStore,
+		contextAssembler:  cfg.ContextAssembler,
+		auditEmitter:      cfg.AuditEmitter,
+		maxHistoryMessages: maxHist,
 	}
 }
 
-// SetConversationStore configures the conversation memory backend.
-// If set, the agent loads history before planning and stores messages after execution.
+// SetConversationStore configures the conversation memory backend (post-construction).
 func (a *DefaultAgent) SetConversationStore(store ConversationStore) {
 	a.conversationStore = store
 }
@@ -92,21 +112,14 @@ func (a *DefaultAgent) SetMaxHistoryMessages(n int) {
 	a.maxHistoryMessages = n
 }
 
-// SetContextAssembler configures the context assembler for pre-planning enrichment.
-// If set, the assembler enriches the conversation history with persona and memory context.
+// SetContextAssembler configures the context assembler (post-construction).
 func (a *DefaultAgent) SetContextAssembler(ca corecontext.ContextAssembler) {
 	a.contextAssembler = ca
 }
 
-// SetAuditEmitter configures the audit emitter for structured event publishing.
+// SetAuditEmitter configures the audit emitter (post-construction).
 func (a *DefaultAgent) SetAuditEmitter(e *audit.AuditEmitter) {
 	a.auditEmitter = e
-}
-
-// SetExecutionPlanner configures the new planner.ExecutionPlanner.
-// When set, DefaultAgent uses it instead of the deprecated agent.Planner.
-func (a *DefaultAgent) SetExecutionPlanner(p planner.ExecutionPlanner) {
-	a.newPlanner = p
 }
 
 // HandleMessage implements Agent.
@@ -134,7 +147,7 @@ func (a *DefaultAgent) HandleMessage(ctx context.Context, req MessageRequest) (*
 
 	// Step 2.5: Enrich history via ContextAssembler (best-effort)
 	if a.contextAssembler != nil && a.runtime != nil {
-		skillMsgs := agentMsgsToSkillMsgs(conversationHistory)
+		skillMsgs := MessagesToSkillMsgs(conversationHistory)
 		assembled, err := a.contextAssembler.Assemble(ctx,
 			corecontext.AssistantContext{
 				ProfileID:       a.runtime.AssistantID,
@@ -159,83 +172,59 @@ func (a *DefaultAgent) HandleMessage(ctx context.Context, req MessageRequest) (*
 			slog.WarnContext(ctx, "agent: context assembly failed, using raw history",
 				"error", err)
 		} else if assembled != nil && len(assembled.Messages) > 0 {
-			conversationHistory = skillMsgsToAgentMsgs(assembled.Messages)
+			conversationHistory = SkillMsgsToMessages(assembled.Messages)
 		}
 	}
 
 	// Step 3: Plan via LLM
-	var plan *ExecutionPlan
-
-	if a.newPlanner != nil {
-		if a.runtime == nil {
-			return nil, fmt.Errorf("agent: runtime is required for execution planning")
-		}
-		pCtx := &planner.PlannerContext{
-			AssistantID: a.runtime.AssistantID,
-			Soul:        a.runtime.Soul,
-			Skills:      agentSkillDescsToPlannerDescs(skillDescriptors),
-			UserRequest: req.Message,
-		}
-		execPlan, err := a.newPlanner.Plan(ctx, pCtx)
-		if err != nil {
-			return nil, fmt.Errorf("agent: planning failed: %w", err)
-		}
-		if err := execPlan.Validate(); err != nil {
-			return nil, fmt.Errorf("agent: invalid plan: %w", err)
-		}
-		step := execPlan.Steps[0]
-		plan = &ExecutionPlan{
-			SkillID:   step.Name,
-			Arguments: step.Arguments,
-			Reasoning: execPlan.Reasoning,
-		}
-	} else {
-		planReq := PlanRequest{
-			UserMessage:         req.Message,
-			AvailableSkills:     skillDescriptors,
-			ConversationHistory: conversationHistory,
-		}
-		var err error
-		plan, err = a.planner.Plan(ctx, a.runtime, planReq)
-		if err != nil {
-			return nil, fmt.Errorf("agent: planning failed: %w", err)
-		}
+	if a.runtime == nil {
+		return nil, fmt.Errorf("agent: runtime is required for execution planning")
 	}
-
-	// Step 4: Validate plan
-	if err := plan.Validate(); err != nil {
+	pCtx := &planner.PlannerContext{
+		AssistantID: a.runtime.AssistantID,
+		Soul:        a.runtime.Soul,
+		Skills:      skillDescriptors,
+		UserRequest: req.Message,
+	}
+	execPlan, err := a.executionPlanner.Plan(ctx, pCtx)
+	if err != nil {
+		return nil, fmt.Errorf("agent: planning failed: %w", err)
+	}
+	if err := execPlan.Validate(); err != nil {
 		return nil, fmt.Errorf("agent: invalid plan: %w", err)
 	}
 
-	// Step 5: Execute via Executor
+	skillID := firstStepName(execPlan)
+
+	// Step 4: Execute via Executor
 	meta := ExecutionMeta{
 		TenantID:  req.TenantID,
 		UserID:    req.UserID,
 		SessionID: req.SessionID,
 	}
 
-	result, err := a.executor.ExecuteFromPlan(ctx, plan, meta)
+	result, err := a.executor.ExecuteFromPlan(ctx, execPlan, meta)
 	if err != nil {
 		resp := &MessageResponse{
 			SessionID: req.SessionID,
-			Message:   fmt.Sprintf("Error executing skill %s: %v", plan.SkillID, err),
-			SkillUsed: plan.SkillID,
-			Plan:      plan,
+			Message:   fmt.Sprintf("Error executing skill %s: %v", skillID, err),
+			SkillUsed: skillID,
+			Plan:      execPlan,
 		}
 		// Store messages even on error (best-effort)
 		a.storeMessages(ctx, req, resp)
-		return resp, err
+		return resp, nil
 	}
 
-	// Step 6: Build response
+	// Step 5: Build response
 	resp := &MessageResponse{
 		SessionID: req.SessionID,
 		Message:   string(result.Output),
-		SkillUsed: plan.SkillID,
-		Plan:      plan,
+		SkillUsed: skillID,
+		Plan:      execPlan,
 	}
 
-	// Step 7: Store messages (best-effort, does not block response)
+	// Step 6: Store messages (best-effort, does not block response)
 	a.storeMessages(ctx, req, resp)
 
 	return resp, nil
@@ -339,21 +328,9 @@ func skillIDsFromDescriptors(descs []SkillDescriptor) []string {
 	return ids
 }
 
-func agentSkillDescsToPlannerDescs(descs []SkillDescriptor) []planner.SkillDescriptor {
-	result := make([]planner.SkillDescriptor, 0, len(descs))
-	for _, d := range descs {
-		result = append(result, planner.SkillDescriptor{
-			ID:          d.ID,
-			Name:        d.Name,
-			Description: d.Description,
-			InputSchema: d.InputSchema,
-		})
-	}
-	return result
-}
-
-// agentMsgsToSkillMsgs converts agent.Message slice to control/skills.Message slice.
-func agentMsgsToSkillMsgs(msgs []Message) []csSkills.Message {
+// MessagesToSkillMsgs converts agent.Message slice to control/skills.Message slice.
+// The skills.Message type includes a Name field for tool messages; conversion drops names.
+func MessagesToSkillMsgs(msgs []Message) []csSkills.Message {
 	result := make([]csSkills.Message, 0, len(msgs))
 	for _, m := range msgs {
 		result = append(result, csSkills.Message{
@@ -364,8 +341,8 @@ func agentMsgsToSkillMsgs(msgs []Message) []csSkills.Message {
 	return result
 }
 
-// skillMsgsToAgentMsgs converts control/skills.Message slice to agent.Message slice.
-func skillMsgsToAgentMsgs(msgs []csSkills.Message) []Message {
+// SkillMsgsToMessages converts control/skills.Message slice to agent.Message slice.
+func SkillMsgsToMessages(msgs []csSkills.Message) []Message {
 	result := make([]Message, 0, len(msgs))
 	for _, m := range msgs {
 		result = append(result, Message{

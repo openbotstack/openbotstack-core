@@ -1,6 +1,7 @@
 package skills
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -40,6 +41,25 @@ type ModelConstraints struct {
 	PreferredProvider string
 }
 
+// ToolChoiceMode controls how the model selects tools.
+type ToolChoiceMode string
+
+const (
+	// ToolChoiceAuto lets the model decide whether to call a tool.
+	ToolChoiceAuto ToolChoiceMode = "auto"
+
+	// ToolChoiceRequired forces the model to call at least one tool.
+	ToolChoiceRequired ToolChoiceMode = "required"
+
+	// ToolChoiceNone prevents the model from calling any tool.
+	ToolChoiceNone ToolChoiceMode = "none"
+)
+
+// ToolChoiceSpecific selects a specific tool by name.
+type ToolChoiceSpecific struct {
+	Name string `json:"name"`
+}
+
 // GenerateRequest is the input to a model generation call.
 type GenerateRequest struct {
 	// Messages is the conversation history.
@@ -56,6 +76,15 @@ type GenerateRequest struct {
 
 	// JSONSchema for structured output (if CapJSONMode).
 	JSONSchema *JSONSchema
+
+	// ToolChoice controls tool selection behavior.
+	// Accepts: ToolChoiceMode (auto/required/none), ToolChoiceSpecific, or nil.
+	// nil means provider default (typically auto).
+	ToolChoice any
+
+	// ParallelToolCalls enables the model to call multiple tools in a single turn.
+	// nil means provider default (typically true for supported models).
+	ParallelToolCalls *bool
 }
 
 // Message represents a single message in the conversation.
@@ -65,6 +94,14 @@ type Message struct {
 	Name    string // for tool messages
 }
 
+// SkillDescriptor describes a skill for LLM context building.
+type SkillDescriptor struct {
+	ID          string       `json:"id"`
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
+	InputSchema *JSONSchema  `json:"input_schema,omitempty"`
+}
+
 // ToolDefinition describes a tool available to the model.
 type ToolDefinition struct {
 	Name        string
@@ -72,11 +109,77 @@ type ToolDefinition struct {
 	Parameters  *JSONSchema
 }
 
-// JSONSchema is a simplified JSON Schema representation.
+// JSONSchema represents a JSON Schema definition compatible with OpenAI,
+// Anthropic, and MCP tool schemas. All fields are optional (omitempty) for
+// backward compatibility — existing schemas with only Type/Properties/Required
+// serialize identically to before this expansion.
 type JSONSchema struct {
+	// Core fields (original)
 	Type       string                 `json:"type,omitempty"`
 	Properties map[string]*JSONSchema `json:"properties,omitempty"`
 	Required   []string               `json:"required,omitempty"`
+
+	// Metadata
+	Description string `json:"description,omitempty"`
+	Title       string `json:"title,omitempty"`
+	Default     any    `json:"default,omitempty"`
+	Examples    []any  `json:"examples,omitempty"`
+
+	// Constraints — string
+	MinLength *int   `json:"minLength,omitempty"`
+	MaxLength *int   `json:"maxLength,omitempty"`
+	Pattern   string `json:"pattern,omitempty"`
+
+	// Constraints — numeric
+	Minimum *float64 `json:"minimum,omitempty"`
+	Maximum *float64 `json:"maximum,omitempty"`
+
+	// Constraints — enum
+	Enum []any `json:"enum,omitempty"`
+
+	// Constraints — array
+	Items *JSONSchema `json:"items,omitempty"`
+
+	// Constraints — object
+	AdditionalProperties *bool `json:"additionalProperties,omitempty"`
+
+	// Composition
+	AnyOf []*JSONSchema `json:"anyOf,omitempty"`
+	OneOf []*JSONSchema `json:"oneOf,omitempty"`
+	AllOf []*JSONSchema `json:"allOf,omitempty"`
+
+	// Definitions (for $ref support)
+	Defs map[string]*JSONSchema `json:"$defs,omitempty"`
+
+	// JSON Schema 2020-12 additions
+	Const       *ConstValue   `json:"const,omitempty"`        // Single value constraint
+	PrefixItems []*JSONSchema `json:"prefixItems,omitempty"`  // Tuple-style array validation (replaces items array form)
+	If          *JSONSchema   `json:"if,omitempty"`           // Conditional schema
+	Then        *JSONSchema   `json:"then,omitempty"`         // Applied when if matches
+	Else        *JSONSchema   `json:"else,omitempty"`         // Applied when if doesn't match
+	Schema      string        `json:"$schema,omitempty"`      // Schema version identifier
+}
+
+// ConstValue wraps a constant value for JSON Schema const validation.
+// A nil pointer means the const constraint is not set.
+// A non-nil pointer with Val=nil represents const: null.
+type ConstValue struct {
+	Val any
+}
+
+// MarshalJSON implements json.Marshaler so that ConstValue{Val: x} serializes as x.
+func (c *ConstValue) MarshalJSON() ([]byte, error) {
+	return json.Marshal(c.Val)
+}
+
+// UnmarshalJSON implements json.Unmarshaler so that "hello" deserializes to &ConstValue{Val: "hello"}.
+func (c *ConstValue) UnmarshalJSON(data []byte) error {
+	var v any
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	c.Val = v
+	return nil
 }
 
 // GenerateResponse is the output from a model generation call.

@@ -13,7 +13,7 @@ This repository defines the CONTROL PLANE of OpenBotStack.
 - Skill definitions and registry
 - Policy and permission checks
 - Agent state machine (plan → execute → reflect → finalize)
-- Memory interfaces (Milvus abstraction only, no direct DB logic)
+- Memory interfaces (abstraction layer only, no direct DB logic)
 - Audit event schemas and decision records
 
 ## IT MUST NOT:

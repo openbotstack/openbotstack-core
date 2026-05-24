@@ -200,11 +200,11 @@ func TestNewProviderFromConfigCapabilities(t *testing.T) {
 }
 
 func TestStreamingTypeAssertion(t *testing.T) {
-	// Verify that old providers do NOT satisfy StreamingModelProvider
+	// Verify that OpenAIProvider satisfies StreamingModelProvider
 	oldProvider := NewOpenAIProvider("", "key", "gpt-4o")
 	var oldIface ModelProvider = oldProvider
-	if _, ok := oldIface.(StreamingModelProvider); ok {
-		t.Error("Old OpenAIProvider should NOT satisfy StreamingModelProvider")
+	if _, ok := oldIface.(StreamingModelProvider); !ok {
+		t.Error("Old OpenAIProvider should satisfy StreamingModelProvider")
 	}
 
 	// Verify new provider DOES satisfy StreamingModelProvider

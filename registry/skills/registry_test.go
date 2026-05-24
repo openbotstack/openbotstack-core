@@ -462,8 +462,6 @@ func TestErrorSentinels_ExistAndUsable(t *testing.T) {
 		{"ErrSkillInvalid", registryskills.ErrSkillInvalid, "invalid"},
 		{"ErrKeyNotFound", registryskills.ErrKeyNotFound, "key not found"},
 		{"ErrInvalidURL", registryskills.ErrInvalidURL, "invalid URL"},
-		{"ErrWasmLoadFailed", registryskills.ErrWasmLoadFailed, "wasm load failed"},
-		{"ErrWasmExecuteFailed", registryskills.ErrWasmExecuteFailed, "wasm execute failed"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -521,8 +519,8 @@ func TestManifest_ValidateMissingBoth(t *testing.T) {
 	if err == nil {
 		t.Fatal("Validate on zero-value manifest should return error")
 	}
-	if !strings.Contains(err.Error(), "id") {
-		t.Errorf("error should mention 'id', got: %v", err)
+	if !strings.Contains(err.Error(), "execution.mode") {
+		t.Errorf("error should mention 'execution.mode', got: %v", err)
 	}
 }
 
@@ -532,6 +530,8 @@ id: custom/analyzer
 version: 2.0.0
 name: Analyzer
 description: Deep document analysis
+execution:
+  mode: wasm
 requires:
   - text_generation
   - embedding
@@ -600,4 +600,152 @@ func skillIDs(ss []registryskills.Skill) []string {
 		ids[i] = s.ID()
 	}
 	return ids
+}
+// --- Unregister tests ---
+
+func TestInMemoryRegistry_Unregister(t *testing.T) {
+	reg := registryskills.NewInMemoryRegistry()
+	skill := &testSkill{id: "test/skill", name: "Test"}
+	if err := reg.Register(skill); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	if err := reg.Unregister("test/skill"); err != nil {
+		t.Fatalf("unregister: %v", err)
+	}
+	if _, err := reg.Get("test/skill"); !errors.Is(err, registryskills.ErrSkillNotFound) {
+		t.Errorf("expected ErrSkillNotFound after unregister, got %v", err)
+	}
+}
+
+func TestInMemoryRegistry_Unregister_NotFound(t *testing.T) {
+	reg := registryskills.NewInMemoryRegistry()
+	if err := reg.Unregister("nonexistent"); !errors.Is(err, registryskills.ErrSkillNotFound) {
+		t.Errorf("expected ErrSkillNotFound, got %v", err)
+	}
+}
+
+func TestInMemoryRegistry_Unregister_ConcurrentAccess(t *testing.T) {
+	reg := registryskills.NewInMemoryRegistry()
+	for i := 0; i < 10; i++ {
+		reg.Register(&testSkill{id: fmt.Sprintf("skill/%d", i), name: fmt.Sprintf("S%d", i)})
+	}
+
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			reg.Unregister(fmt.Sprintf("skill/%d", idx))
+		}(i)
+	}
+	wg.Wait()
+
+	if len(reg.List()) != 0 {
+		t.Errorf("expected 0 skills after concurrent unregister, got %d", len(reg.List()))
+	}
+}
+
+// --- Subscribe tests ---
+
+func TestInMemoryRegistry_Subscribe_RegisterEvent(t *testing.T) {
+	reg := registryskills.NewInMemoryRegistry()
+	ch := make(chan registryskills.ChangeEvent, 1)
+	reg.Subscribe(func(event registryskills.ChangeEvent) { ch <- event })
+
+	reg.Register(&testSkill{id: "new/skill", name: "New"})
+	select {
+	case event := <-ch:
+		if event.Type != registryskills.ChangeEventRegister {
+			t.Errorf("expected register event, got %v", event.Type)
+		}
+		if event.SkillID != "new/skill" {
+			t.Errorf("expected skill ID 'new/skill', got %q", event.SkillID)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for callback")
+	}
+}
+
+func TestInMemoryRegistry_Subscribe_UnregisterEvent(t *testing.T) {
+	reg := registryskills.NewInMemoryRegistry()
+	reg.Register(&testSkill{id: "old/skill", name: "Old"})
+	ch := make(chan registryskills.ChangeEvent, 1)
+	reg.Subscribe(func(event registryskills.ChangeEvent) { ch <- event })
+
+	reg.Unregister("old/skill")
+	select {
+	case event := <-ch:
+		if event.Type != registryskills.ChangeEventUnregister {
+			t.Errorf("expected unregister event, got %v", event.Type)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for callback")
+	}
+}
+
+func TestInMemoryRegistry_Subscribe_MultipleCallbacks(t *testing.T) {
+	reg := registryskills.NewInMemoryRegistry()
+	ch1 := make(chan registryskills.ChangeEvent, 1)
+	ch2 := make(chan registryskills.ChangeEvent, 1)
+	reg.Subscribe(func(event registryskills.ChangeEvent) { ch1 <- event })
+	reg.Subscribe(func(event registryskills.ChangeEvent) { ch2 <- event })
+
+	reg.Register(&testSkill{id: "a", name: "A"})
+	select {
+	case <-ch1:
+	case <-time.After(time.Second):
+		t.Fatal("callback 1 not called")
+	}
+	select {
+	case <-ch2:
+	case <-time.After(time.Second):
+		t.Fatal("callback 2 not called")
+	}
+}
+
+func TestInMemoryRegistry_Subscribe_CallbackPanic(t *testing.T) {
+	reg := registryskills.NewInMemoryRegistry()
+	ch := make(chan registryskills.ChangeEvent, 1)
+	reg.Subscribe(func(event registryskills.ChangeEvent) { panic("boom") })
+	reg.Subscribe(func(event registryskills.ChangeEvent) { ch <- event })
+
+	reg.Register(&testSkill{id: "panic/test", name: "Panic"})
+	select {
+	case event := <-ch:
+		if event.SkillID != "panic/test" {
+			t.Errorf("second callback should still fire, got %q", event.SkillID)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("second callback should fire after panic in first")
+	}
+}
+
+func TestInMemoryRegistry_Subscribe_ReentrantSafe(t *testing.T) {
+	reg := registryskills.NewInMemoryRegistry()
+	reg.Subscribe(func(event registryskills.ChangeEvent) {
+		// Callback that reads from registry (re-entrant)
+		reg.List()
+	})
+
+	err := reg.Register(&testSkill{id: "reentrant", name: "Reentrant"})
+	if err != nil {
+		t.Fatalf("register with re-entrant callback should not deadlock: %v", err)
+	}
+}
+
+// --- G18: SkillInfo compile-time compatibility ---
+
+// TestRegistrySkill_SatisfiesSkillInfo verifies that registry.Skill
+// is a superset of control/skills.SkillInfo. If this compiles, the
+// interface contract is satisfied.
+func TestRegistrySkill_SatisfiesSkillInfo(t *testing.T) {
+	// Compile-time assertion: registry.Skill must satisfy control/skills.SkillInfo
+	var _ skills.SkillInfo = (registryskills.Skill)(nil)
+
+	// Runtime verification with a concrete implementation
+	var s registryskills.Skill = &testSkill{id: "compile-check"}
+	var info skills.SkillInfo = s
+	if info.ID() != "compile-check" {
+		t.Errorf("ID: expected 'compile-check', got %q", info.ID())
+	}
 }

@@ -103,6 +103,8 @@ func TestSkillManifestValidate(t *testing.T) {
 			yaml: `
 id: valid/skill
 version: 1.0.0
+execution:
+  mode: wasm
 `,
 			wantErr: false,
 		},
@@ -156,5 +158,119 @@ permissions:
 
 	if len(manifest.Permissions) != 3 {
 		t.Errorf("Expected 3 permissions, got %d", len(manifest.Permissions))
+	}
+}
+
+func TestSkillManifestRiskLevel(t *testing.T) {
+	tests := []struct {
+		name      string
+		riskYAML  string
+		wantLevel string
+		wantErr   bool
+	}{
+		{
+			name: "valid info",
+			riskYAML: `
+id: test/info
+version: 1.0.0
+execution:
+  mode: declarative
+risk_level: info
+`,
+			wantLevel: "info",
+			wantErr:   false,
+		},
+		{
+			name: "valid sensitive",
+			riskYAML: `
+id: test/sensitive
+version: 1.0.0
+execution:
+  mode: declarative
+risk_level: sensitive
+`,
+			wantLevel: "sensitive",
+			wantErr:   false,
+		},
+		{
+			name: "valid clinical",
+			riskYAML: `
+id: test/clinical
+version: 1.0.0
+execution:
+  mode: wasm
+risk_level: clinical
+`,
+			wantLevel: "clinical",
+			wantErr:   false,
+		},
+		{
+			name: "valid critical",
+			riskYAML: `
+id: test/critical
+version: 1.0.0
+execution:
+  mode: wasm
+risk_level: critical
+`,
+			wantLevel: "critical",
+			wantErr:   false,
+		},
+		{
+			name: "empty defaults to empty string",
+			riskYAML: `
+id: test/none
+version: 1.0.0
+execution:
+  mode: declarative
+`,
+			wantLevel: "",
+			wantErr:   false,
+		},
+		{
+			name: "invalid risk level",
+			riskYAML: `
+id: test/bad
+version: 1.0.0
+execution:
+  mode: declarative
+risk_level: extreme
+`,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manifest, err := skills.ParseManifest([]byte(tt.riskYAML))
+			if err != nil {
+				t.Fatalf("ParseManifest failed: %v", err)
+			}
+
+			err = manifest.Validate()
+			if tt.wantErr {
+				if err == nil {
+					t.Error("expected validation error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Validate failed: %v", err)
+			}
+			if manifest.RiskLevel != tt.wantLevel {
+				t.Errorf("RiskLevel = %q, want %q", manifest.RiskLevel, tt.wantLevel)
+			}
+		})
+	}
+}
+
+func TestValidRiskLevels(t *testing.T) {
+	for _, level := range []string{"info", "sensitive", "clinical", "critical"} {
+		if !skills.ValidRiskLevels[level] {
+			t.Errorf("ValidRiskLevels[%q] should be true", level)
+		}
+	}
+	if skills.ValidRiskLevels["unknown"] {
+		t.Error("ValidRiskLevels['unknown'] should be false")
 	}
 }

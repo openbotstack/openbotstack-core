@@ -95,6 +95,11 @@ func anthropicMessagesStream(
 		temp := req.Temperature
 		body.Temperature = &temp
 	}
+	body.ToolChoice = mapToolChoiceToAnthropic(req.ToolChoice)
+	if req.ParallelToolCalls != nil && !*req.ParallelToolCalls {
+		disabled := true
+		body.DisableParallelUse = &disabled
+	}
 
 	payload, err := json.Marshal(body)
 	if err != nil {

@@ -266,3 +266,218 @@ func TestExecutionPlan_JSONRoundTrip(t *testing.T) {
 		t.Errorf("Reasoning mismatch")
 	}
 }
+// --- ContentBlock tests ---
+
+func TestContentBlock_Text(t *testing.T) {
+	cb := execution.ContentBlock{
+		Type: execution.ContentBlockText,
+		Text: "Hello world",
+	}
+	if cb.Type != execution.ContentBlockText {
+		t.Errorf("expected text type, got %q", cb.Type)
+	}
+	if cb.Text != "Hello world" {
+		t.Errorf("expected 'Hello world', got %q", cb.Text)
+	}
+}
+
+func TestContentBlock_Image(t *testing.T) {
+	cb := execution.ContentBlock{
+		Type:     execution.ContentBlockImage,
+		Data:     "iVBORw0KGgo=",
+		MimeType: "image/png",
+	}
+	if cb.Type != execution.ContentBlockImage {
+		t.Errorf("expected image type, got %q", cb.Type)
+	}
+	if cb.MimeType != "image/png" {
+		t.Errorf("expected image/png, got %q", cb.MimeType)
+	}
+}
+
+func TestContentBlock_Resource(t *testing.T) {
+	cb := execution.ContentBlock{
+		Type: execution.ContentBlockResource,
+		URI:  "https://example.com/file.pdf",
+	}
+	if cb.Type != execution.ContentBlockResource {
+		t.Errorf("expected resource type, got %q", cb.Type)
+	}
+	if cb.URI != "https://example.com/file.pdf" {
+		t.Errorf("expected URI, got %q", cb.URI)
+	}
+}
+
+func TestContentBlock_Serialization(t *testing.T) {
+	cb := execution.ContentBlock{
+		Type:     execution.ContentBlockImage,
+		Data:     "base64data",
+		MimeType: "image/png",
+	}
+	data, err := json.Marshal(cb)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	expected := `{"type":"image","data":"base64data","mime_type":"image/png"}`
+	if string(data) != expected {
+		t.Errorf("expected %s, got %s", expected, string(data))
+	}
+}
+
+func TestExecutionResult_ContentBlocks(t *testing.T) {
+	result := &execution.ExecutionResult{
+		Output: []byte(`{"text":"hello"}`),
+		Status: execution.StatusSuccess,
+	}
+	if result.ContentBlocks != nil {
+		t.Error("default ContentBlocks should be nil")
+	}
+
+	result.ContentBlocks = []execution.ContentBlock{
+		{Type: execution.ContentBlockText, Text: "Summary"},
+		{Type: execution.ContentBlockImage, Data: "abc", MimeType: "image/png"},
+	}
+	if len(result.ContentBlocks) != 2 {
+		t.Errorf("expected 2 blocks, got %d", len(result.ContentBlocks))
+	}
+}
+
+func TestExecutionResult_BackwardCompatible(t *testing.T) {
+	result := &execution.ExecutionResult{
+		Output:   []byte(`{"result":42}`),
+		Status:   execution.StatusSuccess,
+		Duration: 100 * time.Millisecond,
+	}
+	if string(result.Output) != `{"result":42}` {
+		t.Error("Output field should be backward compatible")
+	}
+	if result.ContentBlocks != nil {
+		t.Error("ContentBlocks should be nil for backward compat")
+	}
+}
+func TestContentBlock_Audio(t *testing.T) {
+	cb := execution.ContentBlock{
+		Type:     execution.ContentBlockAudio,
+		Data:     "base64audio",
+		MimeType: "audio/wav",
+	}
+	if cb.Type != execution.ContentBlockAudio {
+		t.Errorf("expected audio type, got %q", cb.Type)
+	}
+}
+
+func TestContentBlock_TextSerialization(t *testing.T) {
+	cb := execution.ContentBlock{Type: execution.ContentBlockText, Text: "hi"}
+	data, err := json.Marshal(cb)
+	if err != nil {
+		t.Fatalf("marshal error: %v", err)
+	}
+	expected := `{"type":"text","text":"hi"}`
+	if string(data) != expected {
+		t.Errorf("expected %s, got %s", expected, string(data))
+	}
+}
+
+// --- ExecutionRequest (G4: untested type) ---
+
+func TestExecutionRequest_Fields(t *testing.T) {
+	req := execution.ExecutionRequest{
+		SkillID:   "skill-1",
+		Input:     []byte(`{"x":1}`),
+		Timeout:   30 * time.Second,
+		TenantID:  "tenant-1",
+		UserID:    "user-1",
+		RequestID: "req-1",
+	}
+	if req.SkillID != "skill-1" {
+		t.Errorf("SkillID: expected 'skill-1', got %q", req.SkillID)
+	}
+	if string(req.Input) != `{"x":1}` {
+		t.Errorf("Input: expected '{\"x\":1}', got %q", string(req.Input))
+	}
+	if req.Timeout != 30*time.Second {
+		t.Errorf("Timeout: expected 30s, got %v", req.Timeout)
+	}
+	if req.TenantID != "tenant-1" {
+		t.Errorf("TenantID: expected 'tenant-1', got %q", req.TenantID)
+	}
+	if req.UserID != "user-1" {
+		t.Errorf("UserID: expected 'user-1', got %q", req.UserID)
+	}
+	if req.RequestID != "req-1" {
+		t.Errorf("RequestID: expected 'req-1', got %q", req.RequestID)
+	}
+}
+
+func TestExecutionRequest_ZeroValues(t *testing.T) {
+	req := execution.ExecutionRequest{}
+	if req.SkillID != "" {
+		t.Errorf("expected empty SkillID, got %q", req.SkillID)
+	}
+	if req.Input != nil {
+		t.Errorf("expected nil Input, got %v", req.Input)
+	}
+	if req.Timeout != 0 {
+		t.Errorf("expected 0 Timeout, got %v", req.Timeout)
+	}
+	if req.TenantID != "" {
+		t.Errorf("expected empty TenantID, got %q", req.TenantID)
+	}
+	if req.UserID != "" {
+		t.Errorf("expected empty UserID, got %q", req.UserID)
+	}
+	if req.RequestID != "" {
+		t.Errorf("expected empty RequestID, got %q", req.RequestID)
+	}
+}
+
+func TestExecutionRequest_WithTimeout(t *testing.T) {
+	timeout := 5 * time.Minute
+	req := execution.ExecutionRequest{
+		SkillID: "slow-skill",
+		Timeout: timeout,
+	}
+	if req.Timeout != timeout {
+		t.Errorf("expected %v, got %v", timeout, req.Timeout)
+	}
+}
+
+// --- ExecutionPlan parallel fields JSON round-trip (G13) ---
+
+func TestExecutionPlan_ParallelFieldsJSONRoundTrip(t *testing.T) {
+	plan := &execution.ExecutionPlan{
+		AssistantID: "asst-1",
+		Steps: []execution.ExecutionStep{
+			{Name: "a", Type: execution.StepTypeSkill, Parallelizable: true, ParallelGroup: "batch"},
+			{Name: "b", Type: execution.StepTypeSkill, Parallelizable: true, ParallelGroup: "batch"},
+			{Name: "c", Type: execution.StepTypeSkill},
+		},
+	}
+
+	data, err := json.Marshal(plan)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var decoded execution.ExecutionPlan
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if len(decoded.Steps) != 3 {
+		t.Fatalf("expected 3 steps, got %d", len(decoded.Steps))
+	}
+	if !decoded.Steps[0].Parallelizable {
+		t.Error("step[0].Parallelizable should be true")
+	}
+	if decoded.Steps[0].ParallelGroup != "batch" {
+		t.Errorf("step[0].ParallelGroup: expected 'batch', got %q", decoded.Steps[0].ParallelGroup)
+	}
+	if decoded.Steps[2].Parallelizable {
+		t.Error("step[2].Parallelizable should be false")
+	}
+	if decoded.Steps[2].ParallelGroup != "" {
+		t.Errorf("step[2].ParallelGroup: expected empty, got %q", decoded.Steps[2].ParallelGroup)
+	}
+}
+

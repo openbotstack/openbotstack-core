@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/openbotstack/openbotstack-core/control/skills"
 )
@@ -238,6 +239,7 @@ func TestAnthropicStreamingText(t *testing.T) {
 
 	var textContent string
 	var gotFinishReason string
+	var gotUsage skills.TokenUsage
 	for chunk := range ch {
 		if chunk.Error != nil {
 			t.Fatalf("Stream error: %v", chunk.Error)
@@ -246,6 +248,9 @@ func TestAnthropicStreamingText(t *testing.T) {
 		if chunk.FinishReason != "" {
 			gotFinishReason = chunk.FinishReason
 		}
+		if chunk.Usage.CompletionTokens > 0 {
+			gotUsage = chunk.Usage
+		}
 	}
 
 	if textContent != "Hello world" {
@@ -253,6 +258,9 @@ func TestAnthropicStreamingText(t *testing.T) {
 	}
 	if gotFinishReason != "end_turn" {
 		t.Errorf("Expected finish_reason 'end_turn', got '%s'", gotFinishReason)
+	}
+	if gotUsage.CompletionTokens != 8 {
+		t.Errorf("Expected 8 completion tokens, got %d", gotUsage.CompletionTokens)
 	}
 }
 
@@ -295,13 +303,18 @@ func TestAnthropicStreamingToolCalls(t *testing.T) {
 	}
 
 	var lastChunk skills.StreamChunk
+	var textContent string
 	for chunk := range ch {
 		if chunk.Error != nil {
 			t.Fatalf("Stream error: %v", chunk.Error)
 		}
+		textContent += chunk.Content
 		lastChunk = chunk
 	}
 
+	if textContent != "Checking." {
+		t.Errorf("Expected text 'Checking.', got '%s'", textContent)
+	}
 	if lastChunk.FinishReason != "tool_use" {
 		t.Errorf("Expected finish_reason 'tool_use', got '%s'", lastChunk.FinishReason)
 	}
@@ -352,14 +365,20 @@ func TestAnthropicStreamingContextCancellation(t *testing.T) {
 	// Cancel the context — goroutine should detect this
 	cancel()
 
-	// Drain remaining chunks — stream should end (with or without error chunk)
-	drained := false
-	for range ch {
-		drained = true
+	// Drain remaining chunks with timeout
+	done := make(chan struct{})
+	go func() {
+		for range ch {
+		}
+		close(done)
+	}()
+	select {
+	case <-done:
+		// Channel closed after cancellation
+	case <-time.After(5 * time.Second):
+		t.Fatal("stream channel did not close after context cancellation")
 	}
-	// Just verify the channel closed without hanging
-	_ = drained
-}
+	}
 
 func TestAnthropicStreamingServerErr(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -480,5 +499,91 @@ func TestAnthropicCapabilitiesIncludeStreaming(t *testing.T) {
 	}
 	if !hasStreaming {
 		t.Error("ClaudeProvider should declare CapStreaming capability")
+	}
+}
+
+// --- Anthropic streaming ToolChoice/ParallelToolCalls propagation (G5) ---
+
+func TestAnthropicStreamingToolChoicePropagation(t *testing.T) {
+	sseData := "event: message_start\n"+
+		"data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_1\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":\"claude-3\",\"usage\":{\"input_tokens\":5}}}\n\n"+
+		"event: content_block_start\n"+
+		"data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n"+
+		"event: content_block_delta\n"+
+		"data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"ok\"}}\n\n"+
+		"event: content_block_stop\n"+
+		"data: {\"type\":\"content_block_stop\",\"index\":0}\n\n"+
+		"event: message_delta\n"+
+		"data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":2}}\n\n"+
+		"event: message_stop\n"+
+		"data: {\"type\":\"message_stop\"}\n\n"
+
+	var receivedReq anthropicMessagesRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&receivedReq); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		fmt.Fprint(w, sseData)
+	}))
+	defer server.Close()
+
+	provider := NewClaudeProvider(server.URL, "key", "claude-3")
+	var sp StreamingModelProvider = provider
+
+	toolChoice := skills.ToolChoiceAuto
+	ch, err := sp.GenerateStream(context.Background(), skills.GenerateRequest{
+		Messages:   []skills.Message{{Role: "user", Content: "test"}},
+		ToolChoice: toolChoice,
+	})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	for range ch {}
+
+	if receivedReq.ToolChoice == nil {
+		t.Fatal("ToolChoice should be set in streaming request")
+	}
+}
+
+func TestAnthropicStreamingParallelToolCallsPropagation(t *testing.T) {
+	sseData := "event: message_start\n"+
+		"data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_1\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":\"claude-3\",\"usage\":{\"input_tokens\":5}}}\n\n"+
+		"event: content_block_start\n"+
+		"data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n"+
+		"event: content_block_delta\n"+
+		"data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"ok\"}}\n\n"+
+		"event: content_block_stop\n"+
+		"data: {\"type\":\"content_block_stop\",\"index\":0}\n\n"+
+		"event: message_delta\n"+
+		"data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":2}}\n\n"+
+		"event: message_stop\n"+
+		"data: {\"type\":\"message_stop\"}\n\n"
+
+	var receivedReq anthropicMessagesRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&receivedReq); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		fmt.Fprint(w, sseData)
+	}))
+	defer server.Close()
+
+	provider := NewClaudeProvider(server.URL, "key", "claude-3")
+	var sp StreamingModelProvider = provider
+
+	disabled := false
+	ch, err := sp.GenerateStream(context.Background(), skills.GenerateRequest{
+		Messages:         []skills.Message{{Role: "user", Content: "test"}},
+		ParallelToolCalls: &disabled,
+	})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	for range ch {}
+
+	if receivedReq.DisableParallelUse == nil || !*receivedReq.DisableParallelUse {
+		t.Error("DisableParallelUse should be true when ParallelToolCalls=false")
 	}
 }

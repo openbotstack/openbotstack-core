@@ -11,7 +11,6 @@ import (
 	"github.com/openbotstack/openbotstack-core/ai/providers"
 	"github.com/openbotstack/openbotstack-core/assistant"
 	"github.com/openbotstack/openbotstack-core/control/skills"
-	registry "github.com/openbotstack/openbotstack-core/registry/skills"
 	"github.com/openbotstack/openbotstack-core/execution"
 )
 
@@ -25,8 +24,8 @@ func TestValidator_Valid(t *testing.T) {
 	plan := &execution.ExecutionPlan{
 		AssistantID: "assistant-1",
 		Steps: []execution.ExecutionStep{
-			{Type: execution.StepTypeSkill, Name: "patient_summary", Arguments: map[string]any{"id": "123"}},
-			{Type: execution.StepTypeTool, Name: "ehr_query", Arguments: map[string]any{"patient_id": "123"}},
+			{Type: execution.StepTypeSkill, Name: "data_summary", Arguments: map[string]any{"id": "123"}},
+			{Type: execution.StepTypeTool, Name: "db_query", Arguments: map[string]any{"record_id": "123"}},
 		},
 	}
 
@@ -141,11 +140,11 @@ func TestValidator_DefaultLimits(t *testing.T) {
 	if limits.MaxSteps != 10 {
 		t.Errorf("expected MaxSteps=10, got %d", limits.MaxSteps)
 	}
-	if limits.MaxToolCalls != 5 {
-		t.Errorf("expected MaxToolCalls=5, got %d", limits.MaxToolCalls)
+	if limits.MaxToolCalls != 15 {
+		t.Errorf("expected MaxToolCalls=15, got %d", limits.MaxToolCalls)
 	}
-	if limits.MaxExecutionTime != 10*time.Second {
-		t.Errorf("expected MaxExecutionTime=10s, got %v", limits.MaxExecutionTime)
+	if limits.MaxExecutionTime != 300*time.Second {
+		t.Errorf("expected MaxExecutionTime=300s, got %v", limits.MaxExecutionTime)
 	}
 }
 
@@ -356,15 +355,18 @@ func TestBuildPrompt_WithInputSchema(t *testing.T) {
 		},
 	})
 
-	if !strings.Contains(prompt, "Input schema:") {
-		t.Error("expected prompt to contain Input schema label")
+	// Planner exposes parameter names/types so the LLM generates correct arguments
+	if !strings.Contains(prompt, "Params:") {
+		t.Error("planner should contain Params section from InputSchema")
 	}
-	// Verify the schema is serialized with actual JSON content, not "{}"
-	if strings.Contains(prompt, "Input schema: {}") {
-		t.Error("expected non-empty schema JSON, got {}")
+	if !strings.Contains(prompt, "income:") {
+		t.Error("planner should expose schema parameter 'income'")
 	}
-	if !strings.Contains(prompt, `"type":"object"`) {
-		t.Error("expected schema to contain type:object")
+	if !strings.Contains(prompt, "Tax Calculator") {
+		t.Error("expected prompt to contain skill name")
+	}
+	if !strings.Contains(prompt, "Calculates tax") {
+		t.Error("expected prompt to contain skill description")
 	}
 }
 
@@ -383,8 +385,8 @@ func TestBuildPrompt_WithNilInputSchema(t *testing.T) {
 		},
 	})
 
-	if !strings.Contains(prompt, "Input schema: {}") {
-		t.Error("expected prompt to contain empty schema placeholder when InputSchema is nil")
+	if !strings.Contains(prompt, "- hello (Hello): Says hello") {
+		t.Error("expected prompt to contain skill listing even with nil InputSchema")
 	}
 }
 
@@ -398,8 +400,8 @@ func TestBuildPrompt_ContainsUserRequest(t *testing.T) {
 		},
 	})
 
-	if !strings.Contains(prompt, "User request: analyze the dataset") {
-		t.Error("expected prompt to contain user request")
+	if !strings.Contains(prompt, "<user_request>\nanalyze the dataset\n</user_request>") {
+		t.Error("expected prompt to contain user request in XML boundary tags")
 	}
 }
 
@@ -841,163 +843,3 @@ func TestPlan_ValidationFailsTooManySteps(t *testing.T) {
 		t.Errorf("expected 'validation failed', got: %v", err)
 	}
 }
-
-// ---------------------------------------------------------------------------
-// ContextBuilder tests
-// ---------------------------------------------------------------------------
-
-func TestNewContextBuilder(t *testing.T) {
-	cb := NewContextBuilder(nil)
-	if cb == nil {
-		t.Fatal("expected non-nil ContextBuilder")
-	}
-}
-
-func TestContextBuilder_NilRuntime(t *testing.T) {
-	cb := NewContextBuilder(nil)
-	_, err := cb.Build(context.Background(), nil, "test request")
-	if err == nil {
-		t.Fatal("expected error for nil runtime")
-	}
-	if !strings.Contains(err.Error(), "runtime is nil") {
-		t.Errorf("expected 'runtime is nil' error, got: %v", err)
-	}
-}
-
-func TestContextBuilder_WithRuntime(t *testing.T) {
-	mockReg := &mockSkillRegistry{
-		skills: map[string]*mockSkillDef{
-			"skill-a": {id: "skill-a", name: "Skill A", desc: "Does A", schema: &skills.JSONSchema{Type: "object"}},
-			"skill-b": {id: "skill-b", name: "Skill B", desc: "Does B", schema: nil},
-		},
-	}
-	mem := assistant.NewSessionMemory()
-
-	cb := NewContextBuilder(mockReg)
-	pCtx, err := cb.Build(context.Background(), &assistant.AssistantRuntime{
-		AssistantID: "asst-1",
-		Soul:        assistant.DefaultSoul(),
-		Skills:      []string{"skill-a", "skill-b", "skill-c"}, // skill-c doesn't exist
-		Memory:      mem,
-	}, "hello")
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if pCtx.AssistantID != "asst-1" {
-		t.Errorf("expected assistant ID asst-1, got %s", pCtx.AssistantID)
-	}
-	if len(pCtx.Skills) != 2 {
-		t.Fatalf("expected 2 skills (skill-c should be skipped), got %d", len(pCtx.Skills))
-	}
-	if pCtx.Skills[0].ID != "skill-a" {
-		t.Errorf("expected first skill to be skill-a, got %s", pCtx.Skills[0].ID)
-	}
-	if pCtx.Skills[0].InputSchema == nil || pCtx.Skills[0].InputSchema.Type != "object" {
-		t.Error("expected skill-a to have input schema")
-	}
-	if pCtx.Skills[1].InputSchema != nil {
-		t.Error("expected skill-b to have nil input schema")
-	}
-	if pCtx.UserRequest != "hello" {
-		t.Errorf("expected user request 'hello', got %s", pCtx.UserRequest)
-	}
-}
-
-func TestContextBuilder_MemorySearchError(t *testing.T) {
-	// Use a memory that returns an error on Search
-	mockReg := &mockSkillRegistry{
-		skills: map[string]*mockSkillDef{
-			"skill-a": {id: "skill-a", name: "Skill A", desc: "Does A", schema: nil},
-		},
-	}
-
-	cb := NewContextBuilder(mockReg)
-	pCtx, err := cb.Build(context.Background(), &assistant.AssistantRuntime{
-		AssistantID: "asst-1",
-		Soul:        assistant.DefaultSoul(),
-		Skills:      []string{"skill-a"},
-		Memory:      &errorMemory{},
-	}, "hello")
-
-	if err != nil {
-		t.Fatalf("unexpected error (memory errors should be tolerated): %v", err)
-	}
-	// Memory search error should be tolerated, resulting in nil memory context
-	if len(pCtx.MemoryContext) != 0 {
-		t.Errorf("expected empty memory context on search error, got %d items", len(pCtx.MemoryContext))
-	}
-}
-
-func TestContextBuilder_EmptySkillList(t *testing.T) {
-	mockReg := &mockSkillRegistry{
-		skills: map[string]*mockSkillDef{},
-	}
-	mem := assistant.NewSessionMemory()
-
-	cb := NewContextBuilder(mockReg)
-	pCtx, err := cb.Build(context.Background(), &assistant.AssistantRuntime{
-		AssistantID: "asst-1",
-		Soul:        assistant.DefaultSoul(),
-		Skills:      []string{},
-		Memory:      mem,
-	}, "hello")
-
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(pCtx.Skills) != 0 {
-		t.Errorf("expected 0 skills, got %d", len(pCtx.Skills))
-	}
-}
-
-// errorMemory is an AssistantMemory that always returns an error on Search
-type errorMemory struct{}
-
-func (m *errorMemory) Get(_ context.Context, _ string) ([]byte, error) {
-	return nil, fmt.Errorf("not found")
-}
-func (m *errorMemory) Set(_ context.Context, _ string, _ []byte) error {
-	return nil
-}
-func (m *errorMemory) Search(_ context.Context, _ string, _ int) ([]assistant.SearchResult, error) {
-	return nil, fmt.Errorf("search error")
-}
-
-// mockSkillRegistry implements registry.SkillRegistry
-type mockSkillRegistry struct {
-	skills map[string]*mockSkillDef
-}
-
-func (m *mockSkillRegistry) Register(_ registry.Skill) error { return nil }
-func (m *mockSkillRegistry) Get(id string) (registry.Skill, error) {
-	s, ok := m.skills[id]
-	if !ok {
-		return nil, fmt.Errorf("not found: %s", id)
-	}
-	return s, nil
-}
-func (m *mockSkillRegistry) List() []string { return nil }
-func (m *mockSkillRegistry) ListByPermission(_ []string) []registry.Skill {
-	return nil
-}
-func (m *mockSkillRegistry) Validate() error { return nil }
-
-// mockSkillDef implements registry.Skill
-type mockSkillDef struct {
-	id     string
-	name   string
-	desc   string
-	schema *skills.JSONSchema
-}
-
-func (m *mockSkillDef) ID() string                      { return m.id }
-func (m *mockSkillDef) Name() string                    { return m.name }
-func (m *mockSkillDef) Description() string             { return m.desc }
-func (m *mockSkillDef) InputSchema() *skills.JSONSchema { return m.schema }
-func (m *mockSkillDef) OutputSchema() *skills.JSONSchema {
-	return &skills.JSONSchema{Type: "object"}
-}
-func (m *mockSkillDef) RequiredPermissions() []string { return nil }
-func (m *mockSkillDef) Timeout() time.Duration        { return 5 * time.Second }
-func (m *mockSkillDef) Validate() error               { return nil }

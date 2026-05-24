@@ -10,9 +10,12 @@ import (
 
 // AuditEvent represents a single auditable action.
 //
-// This struct is the canonical audit event schema shared between core and
-// runtime. It is a superset of the runtime execution_logs.Event, adding
-// ActorID for control-plane context while retaining all runtime fields.
+// This is the single canonical audit event type used across both core and
+// runtime. It supersedes the former harness.AuditEntry and
+// execution_logs.Event types. Fields fall into two groups:
+//
+// Core fields (ID..ActorID) are always populated. Step/harness context
+// fields (StepID..TraceID) are zero-value when not applicable.
 type AuditEvent struct {
 	// ID is a unique identifier for this event.
 	ID string
@@ -45,6 +48,35 @@ type AuditEvent struct {
 	Timestamp time.Time
 
 	// ActorID identifies who/what triggered the event (control-plane context).
-	// This is an extension beyond the runtime Event; runtime consumers can ignore it.
 	ActorID string
+
+	// Source identifies which subsystem produced the event.
+	// When non-empty, ToEnvelope uses this directly instead of inferring.
+	Source Source
+
+	// --- Step/harness context fields (zero-value = unset) ---
+
+	// StepID identifies the step within an execution plan.
+	StepID string
+
+	// StepName is the human-readable name of the step.
+	StepName string
+
+	// StepType is the step type as a string (e.g., "tool", "skill", "llm").
+	StepType string
+
+	// Status is the step execution status (e.g., "started", "completed", "failed").
+	Status string
+
+	// ToolInput captures the arguments passed to a tool step.
+	ToolInput map[string]any
+
+	// ToolOutput captures the result returned by a tool step.
+	ToolOutput any
+
+	// Error holds an error message when the step failed.
+	Error string
+
+	// TraceID is the distributed trace identifier linking related events.
+	TraceID string
 }

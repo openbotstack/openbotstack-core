@@ -8,6 +8,7 @@ import (
 	"github.com/openbotstack/openbotstack-core/execution"
 	"github.com/openbotstack/openbotstack-core/registry/skills"
 	"github.com/openbotstack/openbotstack-core/control/agent"
+	"github.com/openbotstack/openbotstack-core/planner"
 )
 
 // ==================== Agent Correctness Tests ====================
@@ -41,16 +42,36 @@ type correctnessExecutor struct {
 	allowedSkills map[string]bool
 }
 
-func (e *correctnessExecutor) ExecuteFromPlan(ctx context.Context, plan *agent.ExecutionPlan, meta agent.ExecutionMeta) (*execution.ExecutionResult, error) {
-	if !e.allowedSkills[plan.SkillID] {
+func (e *correctnessExecutor) ExecuteFromPlan(ctx context.Context, plan *execution.ExecutionPlan, meta agent.ExecutionMeta) (*execution.ExecutionResult, error) {
+	skillID := ""
+	if len(plan.Steps) > 0 {
+		skillID = plan.Steps[0].Name
+	}
+	if !e.allowedSkills[skillID] {
 		return &execution.ExecutionResult{
 			Status: execution.StatusRejected,
-			Error:  "skill not found: " + plan.SkillID,
+			Error:  "skill not found: " + skillID,
 		}, execution.ErrSkillNotLoaded
 	}
 	return &execution.ExecutionResult{
 		Status: execution.StatusSuccess,
 		Output: []byte(`{"result": "ok"}`),
+	}, nil
+}
+
+type correctnessPlanner struct {
+	defaultSkillID string
+	forcedError    error
+}
+
+func (p *correctnessPlanner) Plan(ctx context.Context, pCtx *planner.PlannerContext) (*execution.ExecutionPlan, error) {
+	if p.forcedError != nil {
+		return nil, p.forcedError
+	}
+	return &execution.ExecutionPlan{
+		Steps: []execution.ExecutionStep{
+			{Name: p.defaultSkillID, Type: execution.StepTypeSkill},
+		},
 	}, nil
 }
 
@@ -63,26 +84,29 @@ func TestAgentRejectsUnknownSkill(t *testing.T) {
 	}
 
 	// Planner returns unknown skill
-	planner := agent.NewMockPlanner("core/unknown-skill")
+	p := &correctnessPlanner{defaultSkillID: "core/unknown-skill"}
 
 	executor := &correctnessExecutor{
 		allowedSkills: map[string]bool{"core/known": true},
 	}
 
-	a := agent.NewDefaultAgent(planner, executor, registry, nil)
+	a := agent.NewDefaultAgent(agent.AgentConfig{Planner: p, Executor: executor, Registry: registry, Runtime: testRuntime})
 
 	resp, err := a.HandleMessage(context.Background(), agent.MessageRequest{
 		Message: "test",
 	})
 
-	// Should return error
-	if err == nil {
-		t.Error("Expected error for unknown skill")
+	// Executor errors are returned in resp.Message, not as Go errors.
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
 	}
 
-	// Response should indicate the error
-	if resp != nil && resp.Message != "" {
-		t.Logf("Response message: %s", resp.Message)
+	// Response should indicate the error in its message
+	if resp == nil {
+		t.Fatal("expected non-nil response")
+	}
+	if resp.Message == "" {
+		t.Error("expected error message in resp.Message")
 	}
 }
 
@@ -95,14 +119,14 @@ func TestAgentRejectsInvalidArguments(t *testing.T) {
 	}
 
 	// Planner returns error for invalid request
-	planner := agent.NewMockPlanner("core/test")
-	planner.ForcedError = errors.New("invalid arguments in request")
+	p := &correctnessPlanner{defaultSkillID: "core/test"}
+	p.forcedError = errors.New("invalid arguments in request")
 
 	executor := &correctnessExecutor{
 		allowedSkills: map[string]bool{"core/test": true},
 	}
 
-	a := agent.NewDefaultAgent(planner, executor, registry, nil)
+	a := agent.NewDefaultAgent(agent.AgentConfig{Planner: p, Executor: executor, Registry: registry, Runtime: testRuntime})
 
 	_, err := a.HandleMessage(context.Background(), agent.MessageRequest{
 		Message: "test",
@@ -117,14 +141,14 @@ func TestAgentRejectsInvalidArguments(t *testing.T) {
 // TestAgentPlanValidation verifies that only validated plans execute.
 func TestAgentPlanValidation(t *testing.T) {
 	tests := []struct {
-		name        string
-		skillID     string
-		forcedError error
-		wantError   bool
-	}{
-		{"valid skill", "core/test", nil, false},
-		{"planner error", "core/test", errors.New("validation failed"), true},
-	}
+			name        string
+			skillID     string
+			forcedError error
+			wantError   bool
+		}{
+			{"valid skill", "core/test", nil, false},
+			{"planner error", "core/test", errors.New("validation failed"), true},
+		}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -132,11 +156,10 @@ func TestAgentPlanValidation(t *testing.T) {
 				skills: map[string]skills.Skill{"core/test": &mockSkill{id: "core/test"}},
 			}
 
-			planner := agent.NewMockPlanner(tt.skillID)
-			planner.ForcedError = tt.forcedError
+			p := &correctnessPlanner{defaultSkillID: tt.skillID, forcedError: tt.forcedError}
 			executor := &correctnessExecutor{allowedSkills: map[string]bool{"core/test": true}}
 
-			a := agent.NewDefaultAgent(planner, executor, registry, nil)
+			a := agent.NewDefaultAgent(agent.AgentConfig{Planner: p, Executor: executor, Registry: registry, Runtime: testRuntime})
 
 			_, err := a.HandleMessage(context.Background(), agent.MessageRequest{
 				Message: "test",
@@ -181,7 +204,7 @@ func TestUICannotSpecifySkill(t *testing.T) {
 
 	// This test documents the design: UI cannot bypass the planner
 	t.Log("ChatRequest struct has no skill_id field - UI cannot specify skills")
-	t.Log("Only the LLMPlanner can select skills based on user message")
+	t.Log("Only the ExecutionPlanner can select skills based on user message")
 }
 
 // TestNoStringMatchingSkillSelection audits the codebase for anti-patterns.
@@ -192,18 +215,18 @@ func TestNoStringMatchingSkillSelection(t *testing.T) {
 	//    - handleChat() delegates entirely to agent.HandleMessage()
 	//
 	// 2. Agent (agent/agent.go) - uses Planner for skill selection
-	//    - Plan() is called on the Planner interface
+	//    - Plan() is called on the ExecutionPlanner interface
 	//    - No strings.Contains or keyword matching
 	//
-	// 3. Planner (agent/planner.go) - uses LLM for skill selection
+	// 3. Planner (planner/) - uses LLM for skill selection
 	//    - Builds prompt with available skills
-	//    - LLM returns structured JSON with skill_id
+	//    - LLM returns structured JSON with steps
 	//
 	// Verified: No pattern like `if strings.Contains(message, "tax")`
 
 	t.Log("Codebase audit complete:")
 	t.Log("- Router: delegates to Agent")
-	t.Log("- Agent: uses Planner.Plan()")
+	t.Log("- Agent: uses ExecutionPlanner.Plan()")
 	t.Log("- Planner: uses LLM for skill selection")
 	t.Log("- No string matching for skill selection found")
 }

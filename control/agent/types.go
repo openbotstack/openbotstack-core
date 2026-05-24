@@ -1,20 +1,10 @@
-// Package agent provides the Agent orchestration layer for OpenBotStack runtime.
-//
-// The Agent is responsible for:
-//   - Receiving user messages
-//   - Delegating to a Planner for LLM-based skill selection
-//   - Forwarding structured ExecutionPlans to the Executor
-//
-// The Agent does NOT:
-//   - Directly select skills (that's the Planner's job)
-//   - Execute skills (that's the Executor's job)
-//   - Handle HTTP concerns (that's the Router's job)
 package agent
 
 import (
-	"encoding/json"
 	"errors"
+	"fmt"
 	control_skills "github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/execution"
 	"github.com/openbotstack/openbotstack-core/registry/skills"
 )
 
@@ -23,9 +13,6 @@ var (
 	// ErrNilPlan is returned when an execution plan is nil.
 	ErrNilPlan = errors.New("agent: execution plan is nil")
 
-	// ErrEmptySkillID is returned when plan has no skill ID.
-	ErrEmptySkillID = errors.New("agent: execution plan has empty skill ID")
-
 	// ErrPlanningFailed is returned when the planner fails to produce a plan.
 	ErrPlanningFailed = errors.New("agent: planning failed")
 
@@ -33,48 +20,10 @@ var (
 	ErrNoSkillsAvailable = errors.New("agent: no skills available for planning")
 )
 
-// ExecutionPlan is the structured output from LLM-based planning.
-// It specifies which skill to invoke and with what arguments.
-type ExecutionPlan struct {
-	// SkillID is the identifier of the skill to execute.
-	// Format: "namespace/name" (e.g., "core/summarize")
-	SkillID string `json:"skill_id"`
-
-	// Arguments are the structured inputs for the skills.
-	// Must conform to the skill's InputSchema.
-	Arguments map[string]any `json:"arguments"`
-
-	// Reasoning explains why this skill was selected (for audit/debug).
-	Reasoning string `json:"reasoning,omitempty"`
-}
-
-// Validate checks if the execution plan is valid.
-func (p *ExecutionPlan) Validate() error {
-	if p == nil {
-		return ErrNilPlan
-	}
-	if p.SkillID == "" {
-		return ErrEmptySkillID
-	}
-	return nil
-}
-
-// ArgumentsJSON returns the arguments serialized as JSON bytes.
-func (p *ExecutionPlan) ArgumentsJSON() ([]byte, error) {
-	if p.Arguments == nil {
-		return []byte("{}"), nil
-	}
-	return json.Marshal(p.Arguments)
-}
-
 // SkillDescriptor describes a skill for LLM context building.
-// This is passed to the Planner so the LLM knows which skills are available.
-type SkillDescriptor struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	Description string            `json:"description"`
-	InputSchema *control_skills.JSONSchema `json:"input_schema,omitempty"`
-}
+// Alias to control_skills.SkillDescriptor — the canonical definition lives in the
+// control/skills package to avoid duplication across planner and agent packages.
+type SkillDescriptor = control_skills.SkillDescriptor
 
 // SkillDescriptorFromSkill converts a skills.Skill to a SkillDescriptor.
 func SkillDescriptorFromSkill(s skills.Skill) SkillDescriptor {
@@ -92,30 +41,45 @@ type MessageRequest struct {
 	UserID    string `json:"user_id"`
 	SessionID string `json:"session_id"`
 	Message   string `json:"message"`
+
+	// ProgressCallback is an optional per-request callback for execution progress events.
+	// When set, it takes priority over any agent-level shared callback, eliminating
+	// cross-tenant callback leakage in concurrent request scenarios.
+	ProgressCallback func(eventType, content string, turn int, tool string)
 }
 
 // MessageResponse represents output from the Agent.
 type MessageResponse struct {
-	SessionID string         `json:"session_id"`
-	Message   string         `json:"message"`
-	SkillUsed string         `json:"skill_used,omitempty"`
-	Plan      *ExecutionPlan `json:"plan,omitempty"`
+	SessionID   string                   `json:"session_id"`
+	Message     string                   `json:"message"`
+	SkillUsed   string                   `json:"skill_used,omitempty"`
+	ExecutionID string                   `json:"execution_id,omitempty"`
+	Plan        *execution.ExecutionPlan `json:"plan,omitempty"`
 }
 
 // Message represents a single chat message in conversation history.
 type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role        string `json:"role"`
+	Content     string `json:"content"`
+	ExecutionID string `json:"execution_id,omitempty"`
 }
 
-// PlanRequest contains context for the Planner.
-type PlanRequest struct {
-	// UserMessage is the current user input.
-	UserMessage string
+// firstStepName returns the name of the first step in an execution plan,
+// or an empty string if the plan has no steps.
+func firstStepName(p *execution.ExecutionPlan) string {
+	if p == nil || len(p.Steps) == 0 {
+		return ""
+	}
+	return p.Steps[0].Name
+}
 
-	// AvailableSkills describes skills the LLM can choose from.
-	AvailableSkills []SkillDescriptor
-
-	// ConversationHistory provides context from prior messages.
-	ConversationHistory []Message
+// ValidatePlanForAgent validates that a plan has at least one step.
+func ValidatePlanForAgent(p *execution.ExecutionPlan) error {
+	if p == nil {
+		return fmt.Errorf("%w: plan is nil", ErrNilPlan)
+	}
+	if len(p.Steps) == 0 {
+		return fmt.Errorf("%w: plan has no steps", ErrNilPlan)
+	}
+	return nil
 }

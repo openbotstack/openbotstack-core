@@ -52,3 +52,58 @@ type Skill interface {
 	// Validate checks if the skill definition is internally consistent.
 	Validate() error
 }
+
+// ExecutionModeProvider is an optional interface that skills can implement
+// to declare how they should be executed (declarative, wasm, native).
+// If not implemented, GetExecutionMode defaults to "declarative".
+type ExecutionModeProvider interface {
+	ExecutionMode() string
+}
+
+// GetExecutionMode returns the execution mode for a skill.
+// If the skill implements ExecutionModeProvider and returns a non-empty
+// string, that value is used. Otherwise defaults to "declarative".
+func GetExecutionMode(s Skill) string {
+	if em, ok := s.(ExecutionModeProvider); ok {
+		if mode := em.ExecutionMode(); mode != "" {
+			return mode
+		}
+	}
+	return "declarative"
+}
+
+// PromptProvider is an optional interface that skills can implement
+// to provide LLM instruction text for declarative execution.
+// For declarative skills, this is loaded from SKILL.md.
+// For wasm/native skills, this is typically empty.
+type PromptProvider interface {
+	Prompt() string
+}
+
+// GetPrompt returns the prompt text for a skill.
+// If the skill implements PromptProvider and returns a non-empty
+// string, that value is used. Otherwise returns empty string.
+func GetPrompt(s Skill) string {
+	if pp, ok := s.(PromptProvider); ok {
+		return pp.Prompt()
+	}
+	return ""
+}
+
+// RiskLevelProvider is an optional interface that skills can implement
+// to declare their risk classification (info, sensitive, clinical, critical).
+type RiskLevelProvider interface {
+	RiskLevel() string
+}
+
+// GetRiskLevel returns the risk level for a skill.
+// If the skill implements RiskLevelProvider and returns a non-empty
+// string, that value is used. Otherwise defaults to "info".
+func GetRiskLevel(s Skill) string {
+	if rl, ok := s.(RiskLevelProvider); ok {
+		if level := rl.RiskLevel(); level != "" {
+			return level
+		}
+	}
+	return "info"
+}

@@ -9,10 +9,13 @@ import (
 // StepResult represents the outcome of a single execution step (skill or tool).
 type StepResult struct {
 	StepName string
-	Type     string // "skill" or "tool"
+	Type     string // "skill", "tool", or "llm"
 	Output   any
 	Error    error
 	Duration time.Duration
+	StepID   string
+	Retries  int
+	Fallback bool
 }
 
 // ExecutionContext holds the request-scoped state for an execution plan.
@@ -36,6 +39,11 @@ type ExecutionContext struct {
 	LoopMode         string // "single_pass" or "dual_loop"
 	CurrentTaskIndex int
 	CurrentTurn      int
+
+	// Request-scoped progress callback for SSE streaming.
+	// When set, loop kernels use this instead of the instance-level callback.
+	// This prevents cross-tenant callback leakage under concurrent requests.
+	ProgressFn func(eventType, content string, turn int, tool string)
 
 	// State (guarded by mutex)
 	mu      sync.RWMutex

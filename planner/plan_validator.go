@@ -71,9 +71,12 @@ func (v *Validator) Validate(plan *execution.ExecutionPlan) error {
 
 		switch step.Type {
 		case execution.StepTypeSkill:
-			// valid
+			// valid — skill steps also consume tool budget since they invoke external capabilities
+			toolCount++
 		case execution.StepTypeTool:
 			toolCount++
+		case execution.StepTypeLLM:
+			// valid — iterative LLM reasoning within a single step
 		default:
 			return fmt.Errorf("%w at index %d: %q", ErrInvalidStepType, i, step.Type)
 		}

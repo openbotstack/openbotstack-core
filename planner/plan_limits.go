@@ -14,7 +14,7 @@ type ExecutionLimits struct {
 func DefaultLimits() ExecutionLimits {
 	return ExecutionLimits{
 		MaxSteps:         10,
-		MaxToolCalls:     5,
-		MaxExecutionTime: 10 * time.Second,
+		MaxToolCalls:     15,
+		MaxExecutionTime: 300 * time.Second,
 	}
 }

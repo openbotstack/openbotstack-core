@@ -23,17 +23,19 @@ const (
 
 	claudeAPIVersion = "2023-06-01"
 
-	httpTimeoutSeconds = 120
+	httpTimeoutSeconds = 300
 )
 
 // ----- OpenAI-compatible request/response types -----
 
 type chatRequest struct {
-	Model             string                 `json:"model"`
-	Messages          []chatMessage          `json:"messages"`
-	MaxTokens         int                    `json:"max_tokens,omitempty"`
-	Temperature       *float64               `json:"temperature,omitempty"`
-	Tools             []chatTool             `json:"tools,omitempty"`
+	Model              string                 `json:"model"`
+	Messages           []chatMessage          `json:"messages"`
+	MaxTokens          int                    `json:"max_tokens,omitempty"`
+	Temperature        *float64               `json:"temperature,omitempty"`
+	Tools              []chatTool             `json:"tools,omitempty"`
+	ToolChoice         any                    `json:"tool_choice,omitempty"`
+	ParallelToolCalls  *bool                  `json:"parallel_tool_calls,omitempty"`
 	ChatTemplateKwargs map[string]interface{} `json:"chat_template_kwargs,omitempty"`
 }
 
@@ -159,9 +161,10 @@ func openAICompatibleGenerate(
 		Messages: messages,
 		Tools:    tools,
 	}
-	// Disable thinking mode for planning requests (JSON output required)
-	// Uses chat_template_kwargs for Qwen3-style models
-	if strings.Contains(strings.ToLower(model), "qwen") && req.MaxTokens > 2048 {
+	// Disable thinking mode for Qwen3-style models.
+	// Thinking mode outputs internal reasoning before the actual response,
+	// which breaks structured output (JSON plans, skill results) and causes timeouts.
+	if strings.Contains(strings.ToLower(model), "qwen") {
 		body.ChatTemplateKwargs = map[string]interface{}{"enable_thinking": false}
 	}
 	if req.MaxTokens > 0 {
@@ -171,6 +174,8 @@ func openAICompatibleGenerate(
 		temp := req.Temperature
 		body.Temperature = &temp
 	}
+	body.ToolChoice = mapToolChoiceToOpenAI(req.ToolChoice)
+	body.ParallelToolCalls = req.ParallelToolCalls
 
 	payload, err := json.Marshal(body)
 	if err != nil {
@@ -396,6 +401,13 @@ func (p *OpenAIProvider) Generate(ctx context.Context, req skills.GenerateReques
 	return openAICompatibleGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, nil, req, 0)
 }
 
+func (p *OpenAIProvider) GenerateStream(ctx context.Context, req skills.GenerateRequest) (<-chan skills.StreamChunk, error) {
+	if p.apiKey == "" {
+		return nil, fmt.Errorf("openai: API key not configured")
+	}
+	return openAICompatibleStream(ctx, p.client, p.baseURL, p.apiKey, p.modelName, nil, req, 0)
+}
+
 func (p *OpenAIProvider) Embed(ctx context.Context, texts []string) ([][]float32, error) {
 	if p.apiKey == "" {
 		return nil, fmt.Errorf("openai: API key not configured")
@@ -499,6 +511,13 @@ func (p *ModelScopeProvider) Generate(ctx context.Context, req skills.GenerateRe
 	return openAICompatibleGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, nil, req, 0)
 }
 
+func (p *ModelScopeProvider) GenerateStream(ctx context.Context, req skills.GenerateRequest) (<-chan skills.StreamChunk, error) {
+	if p.apiKey == "" {
+		return nil, fmt.Errorf("modelscope: API key not configured")
+	}
+	return openAICompatibleStream(ctx, p.client, p.baseURL, p.apiKey, p.modelName, nil, req, 0)
+}
+
 func (p *ModelScopeProvider) Embed(ctx context.Context, texts []string) ([][]float32, error) {
 	return nil, ai.ErrCapabilityNotSupported
 }
@@ -540,6 +559,13 @@ func (p *SiliconFlowProvider) Generate(ctx context.Context, req skills.GenerateR
 		return nil, fmt.Errorf("siliconflow: API key not configured")
 	}
 	return openAICompatibleGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, nil, req, 0)
+}
+
+func (p *SiliconFlowProvider) GenerateStream(ctx context.Context, req skills.GenerateRequest) (<-chan skills.StreamChunk, error) {
+	if p.apiKey == "" {
+		return nil, fmt.Errorf("siliconflow: API key not configured")
+	}
+	return openAICompatibleStream(ctx, p.client, p.baseURL, p.apiKey, p.modelName, nil, req, 0)
 }
 
 func (p *SiliconFlowProvider) Embed(ctx context.Context, texts []string) ([][]float32, error) {

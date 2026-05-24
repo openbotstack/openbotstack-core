@@ -31,6 +31,32 @@ type ExecutionRequest struct {
 
 	// RequestID for tracing.
 	RequestID string
+
+	// TokenFn is an optional streaming callback for LLM-generated tokens.
+	// When set, declarative skills should use streaming generation and
+	// invoke this function for each token chunk received from the LLM.
+	TokenFn func(string)
+}
+
+// ContentBlockType identifies the type of content in a ContentBlock.
+type ContentBlockType string
+
+const (
+	ContentBlockText     ContentBlockType = "text"
+	ContentBlockImage    ContentBlockType = "image"
+	ContentBlockAudio    ContentBlockType = "audio"
+	ContentBlockResource ContentBlockType = "resource"
+)
+
+// ContentBlock represents a structured piece of content in an execution result.
+// Skills can return multiple content blocks (text, images, audio, resource links)
+// instead of a single flat text output.
+type ContentBlock struct {
+	Type     ContentBlockType `json:"type"`
+	Text     string           `json:"text,omitempty"`
+	Data     string           `json:"data,omitempty"`     // base64-encoded for image/audio
+	MimeType string           `json:"mime_type,omitempty"`
+	URI      string           `json:"uri,omitempty"` // resource reference
 }
 
 // ExecutionResult is the output from skill execution.
@@ -46,6 +72,10 @@ type ExecutionResult struct {
 
 	// Duration is the actual execution time.
 	Duration time.Duration
+
+	// ContentBlocks holds structured multi-modal content from the skill.
+	// When nil, consumers should use Output for backward compatibility.
+	ContentBlocks []ContentBlock
 }
 
 // ExecutionStatus indicates the outcome of execution.
@@ -75,3 +105,4 @@ type SkillExecutor interface {
 	// ExecutePlan runs a multi-step execution plan using the provided context.
 	ExecutePlan(ctx context.Context, plan *ExecutionPlan, ec *ExecutionContext) error
 }
+
