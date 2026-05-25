@@ -4,6 +4,11 @@
 //   - AssistantProfile (persona, system prompt)
 //   - Memory (short-term and long-term)
 //   - Current request
+//
+// Seam justification: multiple assembly strategies exist or are planned:
+//   - RuntimeContextAssembler (keyword-based, current)
+//   - RAG-enhanced assembler (embedding retrieval, ADR-017)
+// A second adapter will validate this seam.
 package context
 
 import (
@@ -72,6 +77,14 @@ type UserRequest struct {
 }
 
 // ContextAssembler builds the complete context for an LLM request.
+//
+// Contract — every implementation MUST guarantee:
+//   1. Never return a nil *AssembledContext without an error.
+//   2. SystemPrompt is always non-empty when AssistantContext.BaseSystemPrompt is set.
+//   3. Memory retrieval failures are best-effort: Assemble must succeed even if
+//      the memory backend is unavailable (RelevantMemories will be empty).
+//   4. Messages ordering: memory system messages precede conversationHistory items.
+//   5. AvailableTools reflects only skills found in the registry; missing skills are skipped.
 type ContextAssembler interface {
 	// Assemble builds the context from profile, memory, and request.
 	Assemble(
