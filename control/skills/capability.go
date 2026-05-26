@@ -94,12 +94,15 @@ type Message struct {
 	Name    string // for tool messages
 }
 
-// SkillDescriptor describes a skill for LLM context building.
+// SkillDescriptor describes a skill or capability for LLM context building.
+// The canonical descriptor type — CapabilityDescriptor is a type alias to this.
 type SkillDescriptor struct {
 	ID          string       `json:"id"`
 	Name        string       `json:"name"`
 	Description string       `json:"description"`
 	InputSchema *JSONSchema  `json:"input_schema,omitempty"`
+	Kind        string       `json:"kind,omitempty"`     // e.g. "skill", "mcp", "native", "external"
+	SourceID    string       `json:"source_id,omitempty"` // origin: skill ID, MCP server ID, or "builtin"
 }
 
 // ToolDefinition describes a tool available to the model.

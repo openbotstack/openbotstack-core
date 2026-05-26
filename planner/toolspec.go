@@ -21,37 +21,21 @@ type ToolSpec struct {
 }
 
 // SchemaToToolSpec creates a lightweight ToolSpec from a SkillDescriptor.
-// Extracts parameter names and types from InputSchema so the LLM can generate
-// correct argument values without guessing.
 func SchemaToToolSpec(desc SkillDescriptor) ToolSpec {
-	spec := ToolSpec{
-		ID:          desc.ID,
-		Name:        desc.Name,
-		Description: desc.Description,
-	}
-	if desc.InputSchema != nil && desc.InputSchema.Properties != nil {
-		spec.Parameters = make(map[string]string, len(desc.InputSchema.Properties))
-		for name, schema := range desc.InputSchema.Properties {
-			typeStr := schema.Type
-			if typeStr == "" {
-				typeStr = "value"
-			}
-			if schema.Description != "" && schema.Description != typeStr {
-				typeStr = typeStr + " (" + schema.Description + ")"
-			}
-			spec.Parameters[name] = typeStr
-		}
-	}
-	// Track which params are required for use in formatting
-	if desc.InputSchema != nil {
-		spec.Required = desc.InputSchema.Required
-	}
-	return spec
+	return descriptorToToolSpec(desc)
 }
 
 // CapabilityToToolSpec creates a ToolSpec from a CapabilityDescriptor.
-// This is the capability-aware equivalent of SchemaToToolSpec.
+// Since CapabilityDescriptor is now a type alias for SkillDescriptor, this
+// delegates to the same implementation.
 func CapabilityToToolSpec(desc capability.CapabilityDescriptor) ToolSpec {
+	return descriptorToToolSpec(desc)
+}
+
+// descriptorToToolSpec is the canonical conversion from SkillDescriptor to ToolSpec.
+// Both SchemaToToolSpec and CapabilityToToolSpec delegate here, eliminating the
+// previous 80% code duplication.
+func descriptorToToolSpec(desc SkillDescriptor) ToolSpec {
 	spec := ToolSpec{
 		ID:          desc.ID,
 		Name:        desc.Name,

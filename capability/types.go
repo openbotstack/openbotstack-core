@@ -27,15 +27,9 @@ const (
 )
 
 // CapabilityDescriptor describes a discrete capability that can be presented
-// to the planner as an available tool.
-type CapabilityDescriptor struct {
-	ID          string             `json:"id"`
-	Name        string             `json:"name"`
-	Description string             `json:"description"`
-	InputSchema *skills.JSONSchema `json:"input_schema,omitempty"`
-	Kind        CapabilityKind     `json:"kind"`
-	SourceID    string             `json:"source_id"`
-}
+// to the planner as an available tool. It is a type alias for skills.SkillDescriptor,
+// which now carries Kind and SourceID fields.
+type CapabilityDescriptor = skills.SkillDescriptor
 
 // Capability is the universal interface for anything the registry can hold.
 // Adapters wrap domain-specific types (Skill, MCP Tool) to satisfy this.

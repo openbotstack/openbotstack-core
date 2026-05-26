@@ -65,10 +65,13 @@ type AgentConfig struct {
 	Registry  SkillRegistry
 	Runtime   *assistant.AssistantRuntime
 
-	// Optional dependencies (nil = feature disabled)
-	ConversationStore ConversationStore
-	ContextAssembler  corecontext.ContextAssembler
-	AuditEmitter      *audit.AuditEmitter
+	// SideEffects handles persistence and audit. Defaults to noop if nil.
+	SideEffects SideEffects
+
+	// ContextAssembler enriches conversation history via memory retrieval.
+	// Optional — nil = no enrichment.
+	ContextAssembler corecontext.ContextAssembler
+
 	MaxHistoryMessages int // defaults to 50 if zero
 }
 
@@ -78,10 +81,9 @@ type DefaultAgent struct {
 	executor           PlanExecutor
 	registry           SkillRegistry
 	runtime            *assistant.AssistantRuntime
-	conversationStore  ConversationStore
+	sideEffects        SideEffects
 	maxHistoryMessages int
 	contextAssembler   corecontext.ContextAssembler
-	auditEmitter       *audit.AuditEmitter
 }
 
 // NewDefaultAgent creates a new Agent from an AgentConfig.
@@ -90,21 +92,19 @@ func NewDefaultAgent(cfg AgentConfig) *DefaultAgent {
 	if maxHist <= 0 {
 		maxHist = 50
 	}
+	se := cfg.SideEffects
+	if se == nil {
+		se = noopSideEffects{}
+	}
 	return &DefaultAgent{
-		executionPlanner:  cfg.Planner,
-		executor:          cfg.Executor,
-		registry:          cfg.Registry,
-		runtime:           cfg.Runtime,
-		conversationStore: cfg.ConversationStore,
-		contextAssembler:  cfg.ContextAssembler,
-		auditEmitter:      cfg.AuditEmitter,
+		executionPlanner:   cfg.Planner,
+		executor:           cfg.Executor,
+		registry:           cfg.Registry,
+		runtime:            cfg.Runtime,
+		sideEffects:        se,
+		contextAssembler:   cfg.ContextAssembler,
 		maxHistoryMessages: maxHist,
 	}
-}
-
-// SetConversationStore configures the conversation memory backend (post-construction).
-func (a *DefaultAgent) SetConversationStore(store ConversationStore) {
-	a.conversationStore = store
 }
 
 // SetMaxHistoryMessages sets the maximum number of recent messages to inject into the planner.
@@ -115,11 +115,6 @@ func (a *DefaultAgent) SetMaxHistoryMessages(n int) {
 // SetContextAssembler configures the context assembler (post-construction).
 func (a *DefaultAgent) SetContextAssembler(ca corecontext.ContextAssembler) {
 	a.contextAssembler = ca
-}
-
-// SetAuditEmitter configures the audit emitter (post-construction).
-func (a *DefaultAgent) SetAuditEmitter(e *audit.AuditEmitter) {
-	a.auditEmitter = e
 }
 
 // HandleMessage implements Agent.
@@ -141,7 +136,7 @@ func (a *DefaultAgent) HandleMessage(ctx context.Context, req MessageRequest) (*
 
 	// Step 2: Load conversation history
 	var conversationHistory []Message
-	if a.conversationStore != nil && req.SessionID != "" {
+	if req.SessionID != "" {
 		conversationHistory = a.loadHistory(ctx, req)
 	}
 
@@ -162,13 +157,11 @@ func (a *DefaultAgent) HandleMessage(ctx context.Context, req MessageRequest) (*
 			skillMsgs,
 		)
 		if err != nil {
-			if a.auditEmitter != nil {
-				a.auditEmitter.Emit(ctx, audit.AuditEvent{
-					Action:  "agent.context_assembly_failed",
-					Outcome: "failure",
-					Metadata: map[string]string{"error": err.Error()},
-				})
-			}
+			a.sideEffects.EmitAudit(ctx, audit.AuditEvent{
+				Action:  "agent.context_assembly_failed",
+				Outcome: "failure",
+				Metadata: map[string]string{"error": err.Error()},
+			})
 			slog.WarnContext(ctx, "agent: context assembly failed, using raw history",
 				"error", err)
 		} else if assembled != nil && len(assembled.Messages) > 0 {
@@ -235,7 +228,7 @@ func (a *DefaultAgent) loadHistory(ctx context.Context, req MessageRequest) []Me
 	var history []Message
 
 	// Load summary if available
-	summary, err := a.conversationStore.GetSummary(ctx, req.TenantID, req.UserID, req.SessionID)
+	summary, err := a.sideEffects.GetSummary(ctx, req.TenantID, req.UserID, req.SessionID)
 	if err == nil && summary != "" {
 		history = append(history, Message{
 			Role:    "system",
@@ -244,7 +237,7 @@ func (a *DefaultAgent) loadHistory(ctx context.Context, req MessageRequest) []Me
 	}
 
 	// Load recent messages
-	msgs, err := a.conversationStore.GetHistory(ctx, req.TenantID, req.UserID, req.SessionID, a.maxHistoryMessages)
+	msgs, err := a.sideEffects.GetHistory(ctx, req.TenantID, req.UserID, req.SessionID, a.maxHistoryMessages)
 	if err == nil && len(msgs) > 0 {
 		history = append(history, msgs...)
 	}
@@ -254,14 +247,14 @@ func (a *DefaultAgent) loadHistory(ctx context.Context, req MessageRequest) []Me
 
 // storeMessages persists user message and assistant response (best-effort).
 func (a *DefaultAgent) storeMessages(ctx context.Context, req MessageRequest, resp *MessageResponse) {
-	if a.conversationStore == nil || req.SessionID == "" {
+	if req.SessionID == "" {
 		return
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 
 	// Store user message
-	if err := a.conversationStore.AppendMessage(ctx, SessionMessage{
+	if err := a.sideEffects.AppendMessage(ctx, SessionMessage{
 		TenantID:  req.TenantID,
 		UserID:    req.UserID,
 		SessionID: req.SessionID,
@@ -269,20 +262,18 @@ func (a *DefaultAgent) storeMessages(ctx context.Context, req MessageRequest, re
 		Content:   req.Message,
 		Timestamp: now,
 	}); err != nil {
-		if a.auditEmitter != nil {
-			a.auditEmitter.Emit(ctx, audit.AuditEvent{
-				Action:   "agent.store_user_message_failed",
-				Outcome:  "failure",
-				Resource: req.SessionID,
-				Metadata: map[string]string{"error": err.Error()},
-			})
-		}
+		a.sideEffects.EmitAudit(ctx, audit.AuditEvent{
+			Action:   "agent.store_user_message_failed",
+			Outcome:  "failure",
+			Resource: req.SessionID,
+			Metadata: map[string]string{"error": err.Error()},
+		})
 		slog.WarnContext(ctx, "agent: failed to store user message",
 			"session_id", req.SessionID, "error", err)
 	}
 
 	// Store assistant response
-	if err := a.conversationStore.AppendMessage(ctx, SessionMessage{
+	if err := a.sideEffects.AppendMessage(ctx, SessionMessage{
 		TenantID:  req.TenantID,
 		UserID:    req.UserID,
 		SessionID: req.SessionID,
@@ -290,14 +281,12 @@ func (a *DefaultAgent) storeMessages(ctx context.Context, req MessageRequest, re
 		Content:   resp.Message,
 		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 	}); err != nil {
-		if a.auditEmitter != nil {
-			a.auditEmitter.Emit(ctx, audit.AuditEvent{
-				Action:   "agent.store_assistant_message_failed",
-				Outcome:  "failure",
-				Resource: req.SessionID,
-				Metadata: map[string]string{"error": err.Error()},
-			})
-		}
+		a.sideEffects.EmitAudit(ctx, audit.AuditEvent{
+			Action:   "agent.store_assistant_message_failed",
+			Outcome:  "failure",
+			Resource: req.SessionID,
+			Metadata: map[string]string{"error": err.Error()},
+		})
 		slog.WarnContext(ctx, "agent: failed to store assistant message",
 			"session_id", req.SessionID, "error", err)
 	}

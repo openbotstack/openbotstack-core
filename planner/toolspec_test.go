@@ -204,7 +204,7 @@ func TestCapabilityToToolSpec(t *testing.T) {
 			},
 			Required: []string{"query"},
 		},
-		Kind:     capability.CapabilityKindMCP,
+		Kind:     string(capability.CapabilityKindMCP),
 		SourceID: "server1",
 	}
 
@@ -232,7 +232,7 @@ func TestCapabilityToToolSpec_NoSchema(t *testing.T) {
 		ID:          "mcp.server1.ping",
 		Name:        "ping",
 		Description: "Health check",
-		Kind:        capability.CapabilityKindMCP,
+		Kind:        string(capability.CapabilityKindMCP),
 		SourceID:    "server1",
 	}
 

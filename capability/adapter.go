@@ -71,7 +71,7 @@ func SkillToDescriptor(s registry.Skill) CapabilityDescriptor {
 		Name:        s.Name(),
 		Description: s.Description(),
 		InputSchema: s.InputSchema(),
-		Kind:        CapabilityKindSkill,
+		Kind:        string(CapabilityKindSkill),
 		SourceID:    s.ID(),
 	}
 }

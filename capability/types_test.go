@@ -29,13 +29,13 @@ func TestCapabilityDescriptor_Fields(t *testing.T) {
 		Name:        "tool1",
 		Description: "A test tool",
 		InputSchema: &skills.JSONSchema{Type: "object"},
-		Kind:        CapabilityKindMCP,
+		Kind:        string(CapabilityKindMCP),
 		SourceID:    "server1",
 	}
 	if d.ID != "mcp.server1.tool1" {
 		t.Errorf("ID = %q", d.ID)
 	}
-	if d.Kind != CapabilityKindMCP {
+	if d.Kind != string(CapabilityKindMCP) {
 		t.Errorf("Kind = %q", d.Kind)
 	}
 	if d.SourceID != "server1" {

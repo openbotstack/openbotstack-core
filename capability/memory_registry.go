@@ -3,19 +3,19 @@ package capability
 import (
 	"context"
 	"fmt"
-	"sync"
+
+	registry "github.com/openbotstack/openbotstack-core/registry/skills"
 )
 
 // MemoryCapabilityRegistry is an in-memory, thread-safe implementation of CapabilityRegistry.
 type MemoryCapabilityRegistry struct {
-	mu   sync.RWMutex
-	caps map[string]Capability
+	store *registry.MapStore[Capability]
 }
 
 // NewMemoryCapabilityRegistry creates a new empty registry.
 func NewMemoryCapabilityRegistry() *MemoryCapabilityRegistry {
 	return &MemoryCapabilityRegistry{
-		caps: make(map[string]Capability),
+		store: registry.NewMapStore[Capability](),
 	}
 }
 
@@ -23,23 +23,17 @@ func (r *MemoryCapabilityRegistry) Register(_ context.Context, cap Capability) e
 	if cap == nil {
 		return fmt.Errorf("capability must not be nil")
 	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.caps[cap.ID()] = cap
+	r.store.Put(cap.ID(), cap)
 	return nil
 }
 
 func (r *MemoryCapabilityRegistry) Unregister(_ context.Context, id string) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	delete(r.caps, id)
+	r.store.Delete(id)
 	return nil
 }
 
 func (r *MemoryCapabilityRegistry) Get(id string) (Capability, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	c, ok := r.caps[id]
+	c, ok := r.store.Get(id)
 	if !ok {
 		return nil, fmt.Errorf("capability %q not found", id)
 	}
@@ -47,24 +41,20 @@ func (r *MemoryCapabilityRegistry) Get(id string) (Capability, error) {
 }
 
 func (r *MemoryCapabilityRegistry) List() []CapabilityDescriptor {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	descs := make([]CapabilityDescriptor, 0, len(r.caps))
-	for _, c := range r.caps {
+	var descs []CapabilityDescriptor
+	r.store.ForEach(func(_ string, c Capability) {
 		descs = append(descs, capToDescriptor(c))
-	}
+	})
 	return descs
 }
 
 func (r *MemoryCapabilityRegistry) ListByKind(kind CapabilityKind) []CapabilityDescriptor {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
 	var descs []CapabilityDescriptor
-	for _, c := range r.caps {
+	r.store.ForEach(func(_ string, c Capability) {
 		if c.Kind() == kind {
 			descs = append(descs, capToDescriptor(c))
 		}
-	}
+	})
 	return descs
 }
 
@@ -74,7 +64,7 @@ func capToDescriptor(c Capability) CapabilityDescriptor {
 		Name:        c.Name(),
 		Description: c.Description(),
 		InputSchema: c.InputSchema(),
-		Kind:        c.Kind(),
+		Kind:        string(c.Kind()),
 		SourceID:    c.SourceID(),
 	}
 }

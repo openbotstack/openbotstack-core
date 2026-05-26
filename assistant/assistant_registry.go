@@ -3,6 +3,8 @@ package assistant
 import (
 	"errors"
 	"sync"
+
+	"github.com/openbotstack/openbotstack-core/registry/skills"
 )
 
 var (
@@ -11,34 +13,30 @@ var (
 
 // AssistantRegistry manages the registration and lookup of assistant definitions.
 type AssistantRegistry struct {
-	mu       sync.RWMutex
-	profiles map[string]AssistantProfile
-	configs  map[string]AssistantConfig
+	mu      sync.Mutex // guards atomic paired writes to profile+config
+	profiles *skills.MapStore[AssistantProfile]
+	configs  *skills.MapStore[AssistantConfig]
 }
 
 // NewAssistantRegistry creates a new in-memory registry.
 func NewAssistantRegistry() *AssistantRegistry {
 	return &AssistantRegistry{
-		profiles: make(map[string]AssistantProfile),
-		configs:  make(map[string]AssistantConfig),
+		profiles: skills.NewMapStore[AssistantProfile](),
+		configs:  skills.NewMapStore[AssistantConfig](),
 	}
 }
 
 // Register adds an assistant profile and its default configuration to the registry.
 func (r *AssistantRegistry) Register(profile AssistantProfile, config AssistantConfig) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.profiles[profile.ID] = profile
-	r.configs[profile.ID] = config
+	r.profiles.Put(profile.ID, profile)
+	r.configs.Put(profile.ID, config)
+	r.mu.Unlock()
 }
 
 // GetProfile retrieves an assistant profile by ID.
 func (r *AssistantRegistry) GetProfile(id string) (AssistantProfile, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	p, ok := r.profiles[id]
+	p, ok := r.profiles.Get(id)
 	if !ok {
 		return AssistantProfile{}, ErrAssistantNotFound
 	}
@@ -47,10 +45,7 @@ func (r *AssistantRegistry) GetProfile(id string) (AssistantProfile, error) {
 
 // GetConfig retrieves an assistant's default configuration by ID.
 func (r *AssistantRegistry) GetConfig(id string) (AssistantConfig, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	c, ok := r.configs[id]
+	c, ok := r.configs.Get(id)
 	if !ok {
 		return AssistantConfig{}, ErrAssistantNotFound
 	}

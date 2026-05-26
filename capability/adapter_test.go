@@ -45,7 +45,7 @@ func TestSkillToDescriptor(t *testing.T) {
 	s := &stubSkill{id: "core/search", name: "Search", desc: "Search documents"}
 	d := SkillToDescriptor(s)
 
-	if d.Kind != CapabilityKindSkill {
+	if d.Kind != string(CapabilityKindSkill) {
 		t.Errorf("Kind = %q", d.Kind)
 	}
 	if d.SourceID != "core/search" {
