@@ -35,8 +35,8 @@ type ExecutionContext struct {
 	StartedAt time.Time
 	Deadline  time.Time
 
-	// Loop tracking (used by dual bounded loop kernel)
-	LoopMode         string // "single_pass" or "dual_loop"
+	// Loop tracking (used by execution harness)
+	LoopMode         string // "harness" (default)
 	CurrentTaskIndex int
 	CurrentTurn      int
 

@@ -48,7 +48,7 @@ tidy: ## Tidy go modules
 	$(GO) mod tidy
 
 tools: ## Install dev tools (golangci-lint, gofumpt, govulncheck)
-	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint/cmd/golangci-lint@latest
+	$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	$(GO) install mvdan.cc/gofumpt@latest
 	$(GO) install golang.org/x/vuln/cmd/govulncheck@latest
 

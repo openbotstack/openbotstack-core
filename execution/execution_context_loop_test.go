@@ -23,12 +23,12 @@ func TestExecutionContext_LoopFieldsZeroValue(t *testing.T) {
 func TestExecutionContext_LoopFieldsSettable(t *testing.T) {
 	ctx := NewExecutionContext(context.Background(), "req1", "asst1", "sess1", "tenant1", "user1")
 
-	ctx.LoopMode = "dual_loop"
+	ctx.LoopMode = "harness"
 	ctx.CurrentTaskIndex = 3
 	ctx.CurrentTurn = 7
 
-	if ctx.LoopMode != "dual_loop" {
-		t.Errorf("LoopMode = %q, want %q", ctx.LoopMode, "dual_loop")
+	if ctx.LoopMode != "harness" {
+		t.Errorf("LoopMode = %q, want %q", ctx.LoopMode, "harness")
 	}
 	if ctx.CurrentTaskIndex != 3 {
 		t.Errorf("CurrentTaskIndex = %d, want %d", ctx.CurrentTaskIndex, 3)
