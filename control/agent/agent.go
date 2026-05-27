@@ -70,7 +70,7 @@ type AgentConfig struct {
 }
 
 // skillIDsFromDescriptors extracts skill IDs from descriptors.
-func skillIDsFromDescriptors(descs []SkillDescriptor) []string {
+func skillIDsFromDescriptors(descs []csSkills.SkillDescriptor) []string {
 	ids := make([]string, 0, len(descs))
 	for _, d := range descs {
 		ids = append(ids, d.ID)

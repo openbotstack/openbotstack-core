@@ -107,7 +107,7 @@ func TestLLMPlanner(t *testing.T) {
 	prompt := planner.buildPrompt(&PlannerContext{
 		AssistantID: "a1",
 		UserRequest: "hello",
-		Skills: []SkillDescriptor{
+		Skills: []skills.SkillDescriptor{
 			{ID: "skill1", Name: "Skill 1", Description: "A skill"},
 		},
 	})
@@ -283,7 +283,7 @@ func TestBuildPrompt_WithSoul(t *testing.T) {
 			Personality:  "Friendly and precise",
 			Instructions: "Always be concise",
 		},
-		Skills: []SkillDescriptor{
+		Skills: []skills.SkillDescriptor{
 			{ID: "summarize", Name: "Summarize", Description: "Summarizes text"},
 		},
 	})
@@ -305,7 +305,7 @@ func TestBuildPrompt_WithMemoryContext(t *testing.T) {
 			{Content: []byte("user likes Go"), Score: 0.9},
 			{Content: []byte("user prefers dark mode"), Score: 0.8},
 		},
-		Skills: []SkillDescriptor{
+		Skills: []skills.SkillDescriptor{
 			{ID: "s1", Name: "S1", Description: "skill 1"},
 		},
 	})
@@ -326,7 +326,7 @@ func TestBuildPrompt_EmptySkillsList(t *testing.T) {
 	prompt := p.buildPrompt(&PlannerContext{
 		AssistantID: "a1",
 		UserRequest: "do something",
-		Skills:      []SkillDescriptor{},
+		Skills:      []skills.SkillDescriptor{},
 	})
 
 	if !strings.Contains(prompt, "Available skills/tools:") {
@@ -339,7 +339,7 @@ func TestBuildPrompt_WithInputSchema(t *testing.T) {
 	prompt := p.buildPrompt(&PlannerContext{
 		AssistantID: "a1",
 		UserRequest: "calculate tax",
-		Skills: []SkillDescriptor{
+		Skills: []skills.SkillDescriptor{
 			{
 				ID:          "tax-calc",
 				Name:        "Tax Calculator",
@@ -375,7 +375,7 @@ func TestBuildPrompt_WithNilInputSchema(t *testing.T) {
 	prompt := p.buildPrompt(&PlannerContext{
 		AssistantID: "a1",
 		UserRequest: "hello",
-		Skills: []SkillDescriptor{
+		Skills: []skills.SkillDescriptor{
 			{
 				ID:          "hello",
 				Name:        "Hello",
@@ -395,7 +395,7 @@ func TestBuildPrompt_ContainsUserRequest(t *testing.T) {
 	prompt := p.buildPrompt(&PlannerContext{
 		AssistantID: "a1",
 		UserRequest: "analyze the dataset",
-		Skills: []SkillDescriptor{
+		Skills: []skills.SkillDescriptor{
 			{ID: "s1", Name: "S1", Description: "A skill"},
 		},
 	})
@@ -410,7 +410,7 @@ func TestBuildPrompt_ContainsJSONFormatInstructions(t *testing.T) {
 	prompt := p.buildPrompt(&PlannerContext{
 		AssistantID: "a1",
 		UserRequest: "test",
-		Skills: []SkillDescriptor{
+		Skills: []skills.SkillDescriptor{
 			{ID: "s1", Name: "S1", Description: "A skill"},
 		},
 	})
@@ -429,7 +429,7 @@ func TestBuildPrompt_EmptySoulFields(t *testing.T) {
 		AssistantID: "a1",
 		UserRequest: "test",
 		Soul:        assistant.AssistantSoul{}, // all empty
-		Skills: []SkillDescriptor{
+		Skills: []skills.SkillDescriptor{
 			{ID: "s1", Name: "S1", Description: "A skill"},
 		},
 	})
@@ -631,7 +631,7 @@ func TestPlan_NoSkills(t *testing.T) {
 	p := NewLLMPlanner(nil, nil)
 	_, err := p.Plan(context.Background(), &PlannerContext{
 		AssistantID: "a1",
-		Skills:      []SkillDescriptor{},
+		Skills:      []skills.SkillDescriptor{},
 	})
 	if err != ErrNoSkillsAvailable {
 		t.Fatalf("expected ErrNoSkillsAvailable, got %v", err)
@@ -645,7 +645,7 @@ func TestPlan_RoutingFailure(t *testing.T) {
 	p := NewLLMPlanner(router, nil)
 	_, err := p.Plan(context.Background(), &PlannerContext{
 		AssistantID: "a1",
-		Skills: []SkillDescriptor{
+		Skills: []skills.SkillDescriptor{
 			{ID: "s1", Name: "S1", Description: "A skill"},
 		},
 	})
@@ -666,7 +666,7 @@ func TestPlan_LLMFailure(t *testing.T) {
 	p := NewLLMPlanner(router, nil)
 	_, err := p.Plan(context.Background(), &PlannerContext{
 		AssistantID: "a1",
-		Skills: []SkillDescriptor{
+		Skills: []skills.SkillDescriptor{
 			{ID: "s1", Name: "S1", Description: "A skill"},
 		},
 	})
@@ -689,7 +689,7 @@ func TestPlan_InvalidLLMResponse(t *testing.T) {
 	p := NewLLMPlanner(router, nil)
 	_, err := p.Plan(context.Background(), &PlannerContext{
 		AssistantID: "a1",
-		Skills: []SkillDescriptor{
+		Skills: []skills.SkillDescriptor{
 			{ID: "s1", Name: "S1", Description: "A skill"},
 		},
 	})
@@ -716,7 +716,7 @@ func TestPlan_ValidationFailure(t *testing.T) {
 	p := NewLLMPlanner(router, nil)
 	_, err := p.Plan(context.Background(), &PlannerContext{
 		AssistantID: "a1",
-		Skills: []SkillDescriptor{
+		Skills: []skills.SkillDescriptor{
 			{ID: "s1", Name: "S1", Description: "A skill"},
 		},
 	})
@@ -740,7 +740,7 @@ func TestPlan_Success(t *testing.T) {
 	p := NewLLMPlanner(router, nil)
 	plan, err := p.Plan(context.Background(), &PlannerContext{
 		AssistantID: "a1",
-		Skills: []SkillDescriptor{
+		Skills: []skills.SkillDescriptor{
 			{ID: "summarize", Name: "Summarize", Description: "Summarizes text"},
 		},
 	})
@@ -767,7 +767,7 @@ func TestPlan_AssistantIDPreservedFromResponse(t *testing.T) {
 	p := NewLLMPlanner(router, nil)
 	plan, err := p.Plan(context.Background(), &PlannerContext{
 		AssistantID: "context-assistant",
-		Skills: []SkillDescriptor{
+		Skills: []skills.SkillDescriptor{
 			{ID: "s1", Name: "S1", Description: "A skill"},
 		},
 	})
@@ -792,7 +792,7 @@ func TestPlan_SuccessWithMarkdownResponse(t *testing.T) {
 	p := NewLLMPlanner(router, nil)
 	plan, err := p.Plan(context.Background(), &PlannerContext{
 		AssistantID: "a1",
-		Skills: []SkillDescriptor{
+		Skills: []skills.SkillDescriptor{
 			{ID: "s1", Name: "S1", Description: "A skill"},
 		},
 	})
@@ -832,7 +832,7 @@ func TestPlan_ValidationFailsTooManySteps(t *testing.T) {
 	p := NewLLMPlanner(router, limits)
 	_, err := p.Plan(context.Background(), &PlannerContext{
 		AssistantID: "a1",
-		Skills: []SkillDescriptor{
+		Skills: []skills.SkillDescriptor{
 			{ID: "s1", Name: "S1", Description: "A skill"},
 		},
 	})

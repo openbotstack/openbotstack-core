@@ -3,9 +3,9 @@ package agent
 import (
 	"errors"
 	"fmt"
-	control_skills "github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/control/skills"
 	"github.com/openbotstack/openbotstack-core/execution"
-	"github.com/openbotstack/openbotstack-core/registry/skills"
+	regSkills "github.com/openbotstack/openbotstack-core/registry/skills"
 )
 
 // Common errors for the agent package.
@@ -20,14 +20,9 @@ var (
 	ErrNoSkillsAvailable = errors.New("agent: no skills available for planning")
 )
 
-// SkillDescriptor describes a skill for LLM context building.
-// Alias to control_skills.SkillDescriptor — the canonical definition lives in the
-// control/skills package to avoid duplication across planner and agent packages.
-type SkillDescriptor = control_skills.SkillDescriptor
-
-// SkillDescriptorFromSkill converts a skills.Skill to a SkillDescriptor.
-func SkillDescriptorFromSkill(s skills.Skill) SkillDescriptor {
-	return SkillDescriptor{
+// SkillDescriptorFromSkill converts a skills.Skill to a skills.SkillDescriptor.
+func SkillDescriptorFromSkill(s regSkills.Skill) skills.SkillDescriptor {
+	return skills.SkillDescriptor{
 		ID:          s.ID(),
 		Name:        s.Name(),
 		Description: s.Description(),

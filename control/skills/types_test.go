@@ -494,12 +494,10 @@ func TestSkillDescriptor_Serialization(t *testing.T) {
 	}
 }
 
-// TestSkillDescriptor_AliasIdentity verifies that planner.SkillDescriptor and
-// agent.SkillDescriptor are type aliases of skills.SkillDescriptor (same type).
+// TestSkillDescriptor_AliasIdentity verifies that skills.SkillDescriptor is the
+// canonical type used directly across packages (aliases have been removed).
 func TestSkillDescriptor_AliasIdentity(t *testing.T) {
-	// This test imports the aliased packages and verifies assignability.
-	// The actual alias verification is in the runtime/agent helpers_test.go
-	// which imports all three packages. Here we verify the canonical type works.
+	// The canonical type works directly — no aliases needed.
 	sd := skills.SkillDescriptor{ID: "test", Name: "T", Description: "D"}
 
 	// Must be able to take address of fields

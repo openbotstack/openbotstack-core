@@ -30,10 +30,6 @@ type ExecutionPlanner interface {
 	Plan(ctx context.Context, pCtx *PlannerContext) (*execution.ExecutionPlan, error)
 }
 
-// SkillDescriptor describes a skill for LLM context building.
-// Alias to skills.SkillDescriptor — the canonical definition lives in the
-// control/skills package to avoid duplication across planner and agent packages.
-type SkillDescriptor = skills.SkillDescriptor
 
 // ProgressFn is the callback signature for planner progress events.
 type ProgressFn func(eventType, content string)

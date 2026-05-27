@@ -11,7 +11,7 @@ import (
 // --- SchemaToToolSpec: planner uses only ID/Name/Description ---
 
 func TestSchemaToToolSpec_BasicFields(t *testing.T) {
-	desc := SkillDescriptor{
+	desc := skills.SkillDescriptor{
 		ID:          "core/summarize",
 		Name:        "Summarize",
 		Description: "Summarizes text",
@@ -29,7 +29,7 @@ func TestSchemaToToolSpec_BasicFields(t *testing.T) {
 }
 
 func TestSchemaToToolSpec_ExtractsParameters(t *testing.T) {
-	desc := SkillDescriptor{
+	desc := skills.SkillDescriptor{
 		ID:          "core/search",
 		Name:        "Search",
 		Description: "Search documents",
@@ -58,7 +58,7 @@ func TestSchemaToToolSpec_ExtractsParameters(t *testing.T) {
 }
 
 func TestSchemaToToolSpec_DescriptionAppendsToType(t *testing.T) {
-	desc := SkillDescriptor{
+	desc := skills.SkillDescriptor{
 		ID:          "core/add",
 		Name:        "Add",
 		Description: "Add numbers",
@@ -80,7 +80,7 @@ func TestSchemaToToolSpec_DescriptionAppendsToType(t *testing.T) {
 }
 
 func TestSchemaToToolSpec_NilSchema(t *testing.T) {
-	desc := SkillDescriptor{
+	desc := skills.SkillDescriptor{
 		ID:          "core/hello",
 		Name:        "Hello",
 		Description: "Says hello",
@@ -96,7 +96,7 @@ func TestSchemaToToolSpec_NilSchema(t *testing.T) {
 }
 
 func TestSchemaToToolSpec_EmptyFields(t *testing.T) {
-	desc := SkillDescriptor{}
+	desc := skills.SkillDescriptor{}
 	spec := SchemaToToolSpec(desc)
 	if spec.ID != "" {
 		t.Errorf("expected empty ID, got %q", spec.ID)
