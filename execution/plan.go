@@ -47,6 +47,19 @@ type ExecutionStep struct {
 	RiskLevel string `json:"risk_level,omitempty"`
 }
 
+// Clone returns a shallow copy with a cloned Arguments map so mutations
+// (CoerceStringNumbers, ResolveArguments) don't affect the original plan step.
+func (s *ExecutionStep) Clone() *ExecutionStep {
+	cp := *s
+	if s.Arguments != nil {
+		cp.Arguments = make(map[string]any, len(s.Arguments))
+		for k, v := range s.Arguments {
+			cp.Arguments[k] = v
+		}
+	}
+	return &cp
+}
+
 // ArgumentsJSON returns the arguments serialized as JSON bytes.
 func (s *ExecutionStep) ArgumentsJSON() ([]byte, error) {
 	if s.Arguments == nil {

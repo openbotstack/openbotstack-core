@@ -40,6 +40,11 @@ type ExecutionContext struct {
 	CurrentTaskIndex int
 	CurrentTurn      int
 
+	// GrantedPermissions lists the permissions granted to this execution context.
+	// Populated by the control plane before execution. The step executor uses
+	// this to gate access to tools with required permissions (read_file, write_file, web_fetch).
+	GrantedPermissions []string
+
 	// Request-scoped progress callback for SSE streaming.
 	// When set, loop kernels use this instead of the instance-level callback.
 	// This prevents cross-tenant callback leakage under concurrent requests.
