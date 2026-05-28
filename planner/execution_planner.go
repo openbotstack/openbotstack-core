@@ -177,43 +177,21 @@ func (p *LLMPlanner) buildPrompt(pCtx *PlannerContext) string {
 	sb.WriteString("\n</user_request>\n\n")
 
 	sb.WriteString(`Respond with a JSON object containing the execution plan. Do not include any other text or reasoning.
-	Format:
-	{
-	  "assistant_id": "...",
-	  "steps": [
-	    {
-	      "type": "tool",
-	      "name": "mcp.server.tool_name",
-	      "arguments": {"param": "value"}
-	    },
-	    {
-	      "type": "skill",
-	      "name": "skill_name",
-	      "arguments": {"param": "{{mcp.server.tool_name.result}}"}
-	    }
-	  ]
-	}
-
-	IMPORTANT rules:
-	- Use "type": "tool" for tools (IDs starting with "mcp."). Use "type": "skill" for skills.
-	- When the user mentions a patient or medical data, ALWAYS first call the relevant mcp.* tools to fetch real data, then pass results to a skill.
-	- NEVER skip tool calls and go directly to a skill if relevant mcp.* tools exist for the required data.
-		- ALWAYS end the plan with a skill step when tool calls are present — skills format data for the user. Never end a plan with only tool calls.
-	- Chain tool calls before skills: fetch data with tools, then pass results to skills via {{step_name}}.
-	- Reference outputs from earlier steps using {{step_name}} in argument values.
-	- If a step returns a JSON object, use dot notation: {{step_name.field}}.
-	- Example plan for patient handover:
-	  {"type":"tool","name":"mcp.his.query_patient","arguments":{"patient_id":"P001"}}
-	  {"type":"tool","name":"mcp.vitals.get_vitals","arguments":{"patient_id":"P001"}}
-	  {"type":"skill","name":"sbar-handover","arguments":{"patient_data":"{{mcp.his.query_patient}}","vitals":"{{mcp.vitals.get_vitals}}"}}
-	- Example plan for first day note:
-		  {"type":"tool","name":"mcp.his.get_patient_demographics","arguments":{"patient_id":"P001"}}
-		  {"type":"tool","name":"mcp.his.get_diagnosis","arguments":{"patient_id":"P001"}}
-		  {"type":"tool","name":"mcp.lis.get_lab_results","arguments":{"patient_id":"P001"}}
-		  {"type":"tool","name":"mcp.vitals.get_vitals","arguments":{"patient_id":"P001"}}
-		  {"type":"skill","name":"medical.first-day-note","arguments":{"patient_data":"{{mcp.his.get_patient_demographics}}","diagnosis":"{{mcp.his.get_diagnosis}}","lab_results":"{{mcp.lis.get_lab_results}}","vitals":"{{mcp.vitals.get_vitals}}"}}
-		- Always generate at least one step. If no tools are relevant, generate a single skill step.
-
+		Format:
+		{
+		  "assistant_id": "...",
+		  "steps": [
+		    {"type": "tool", "name": "builtin.now", "arguments": {}},
+		    {"type": "skill", "name": "summarize", "arguments": {"text": "..."}},
+		    {"type": "llm", "name": "respond", "arguments": {"prompt": "..."}}
+		  ]
+		}
+		
+		IMPORTANT:
+		- Use "type": "tool" for mcp.* and builtin.* tools. Use "type": "skill" for skills. Use "type": "llm" for direct LLM responses.
+		- For simple conversation, greetings, or questions with no relevant tool/skill: use a single "llm" step with name="respond".
+		- Only generate steps using the available skills/tools listed above. Never invent skill or tool names.
+		- Reference earlier step outputs with {{step_name}} in arguments. Use {{step_name.field}} for JSON results.
 	/no_think`)
 
 	return sb.String()

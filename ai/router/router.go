@@ -66,6 +66,18 @@ func (r *DefaultRouter) Replace(provider providers.ModelProvider) {
 	r.providers[provider.ID()] = provider
 }
 
+// Unregister removes ALL providers matching the given driver prefix
+// (e.g., Unregister("openai") removes "openai/gpt-4o", "openai/llama3", etc.).
+func (r *DefaultRouter) Unregister(driverPrefix string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for id := range r.providers {
+		if len(id) > len(driverPrefix) && id[:len(driverPrefix)] == driverPrefix && id[len(driverPrefix)] == '/' {
+			delete(r.providers, id)
+		}
+	}
+}
+
 // List returns all registered provider IDs.
 func (r *DefaultRouter) List() []string {
 	r.mu.RLock()
