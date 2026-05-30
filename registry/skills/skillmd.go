@@ -113,7 +113,7 @@ func DeriveSkillID(skillDir string) string {
 // findFrontmatterEnd finds the closing --- delimiter in frontmatter content.
 // It handles the case where --- appears at the start of a line.
 func findFrontmatterEnd(content string) int {
-	lines := strings.SplitN(content, "\n", -1)
+	lines := strings.Split(content, "\n")
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "---" && i > 0 {

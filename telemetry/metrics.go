@@ -12,7 +12,7 @@ type Labels map[string]string
 
 // String returns a deterministic serialized form for use as a map key.
 func (l Labels) String() string {
-	if l == nil || len(l) == 0 {
+	if len(l) == 0 {
 		return ""
 	}
 	keys := make([]string, 0, len(l))

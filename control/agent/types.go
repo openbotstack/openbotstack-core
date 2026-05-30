@@ -59,15 +59,6 @@ type Message struct {
 	ExecutionID string `json:"execution_id,omitempty"`
 }
 
-// firstStepName returns the name of the first step in an execution plan,
-// or an empty string if the plan has no steps.
-func firstStepName(p *execution.ExecutionPlan) string {
-	if p == nil || len(p.Steps) == 0 {
-		return ""
-	}
-	return p.Steps[0].Name
-}
-
 // ValidatePlanForAgent validates that a plan has at least one step.
 func ValidatePlanForAgent(p *execution.ExecutionPlan) error {
 	if p == nil {

@@ -73,7 +73,7 @@ func TestCheckInput_EmptyText(t *testing.T) {
 
 func TestCheckInput_NilContext(t *testing.T) {
 	f := NewFilter(SafetyPolicy{})
-	_, err := f.CheckInput(nil, "hello")
+	_, err := f.CheckInput(nil, "hello") //nolint:staticcheck // intentional nil context test
 	if err == nil {
 		t.Error("expected error for nil context")
 	}
@@ -92,7 +92,7 @@ func TestCheckOutput_EmptyText(t *testing.T) {
 
 func TestCheckOutput_NilContext(t *testing.T) {
 	f := NewFilter(SafetyPolicy{})
-	_, err := f.CheckOutput(nil, "hello")
+	_, err := f.CheckOutput(nil, "hello") //nolint:staticcheck // intentional nil context test
 	if err == nil {
 		t.Error("expected error for nil context")
 	}
@@ -129,7 +129,7 @@ func TestMaskPII_MultiplePII(t *testing.T) {
 
 func TestMaskPII_NilContext(t *testing.T) {
 	f := NewFilter(SafetyPolicy{})
-	_, _, err := f.MaskPII(nil, "text")
+	_, _, err := f.MaskPII(nil, "text") //nolint:staticcheck // intentional nil context test
 	if err == nil {
 		t.Error("expected error for nil context")
 	}

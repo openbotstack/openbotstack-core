@@ -176,7 +176,7 @@ func TestEvaluate_EmptyAction(t *testing.T) {
 
 func TestEvaluate_NilContext(t *testing.T) {
 	e := NewEnforcer()
-	err := e.Evaluate(nil, "t1", "skill.execute", "skill/x", nil)
+	err := e.Evaluate(nil, "t1", "skill.execute", "skill/x", nil) //nolint:staticcheck // intentional nil context test
 	if err == nil {
 		t.Error("expected error for nil context")
 	}

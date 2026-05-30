@@ -66,14 +66,6 @@ type AgentConfig struct {
 	MaxHistoryMessages int // defaults to 50 if zero
 }
 
-// skillIDsFromDescriptors extracts skill IDs from descriptors.
-func skillIDsFromDescriptors(descs []csSkills.SkillDescriptor) []string {
-	ids := make([]string, 0, len(descs))
-	for _, d := range descs {
-		ids = append(ids, d.ID)
-	}
-	return ids
-}
 
 // MessagesToSkillMsgs converts agent.Message slice to control/skills.Message slice.
 // The skills.Message type includes a Name field for tool messages; conversion drops names.

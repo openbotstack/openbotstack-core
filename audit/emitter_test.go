@@ -121,7 +121,7 @@ func TestEmit_SubscriberReturnsError(t *testing.T) {
 
 func TestEmit_NilContext(t *testing.T) {
 	e := NewEmitter()
-	err := e.Emit(nil, AuditEvent{ID: "evt-1"})
+	err := e.Emit(nil, AuditEvent{ID: "evt-1"}) //nolint:staticcheck // intentional nil context test
 	if err == nil {
 		t.Error("expected error for nil context")
 	}

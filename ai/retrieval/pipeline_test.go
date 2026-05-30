@@ -85,7 +85,7 @@ func TestIndex_EmptyContent(t *testing.T) {
 
 func TestIndex_NilContext(t *testing.T) {
 	p := NewPipeline()
-	err := p.Index(nil, Document{ID: "doc-1", Content: "content"})
+	err := p.Index(nil, Document{ID: "doc-1", Content: "content"}) //nolint:staticcheck // intentional nil context test
 	if err == nil {
 		t.Error("expected error for nil context")
 	}
@@ -132,7 +132,7 @@ func TestRetrieve_TopKLargerThanIndex(t *testing.T) {
 
 func TestRetrieve_NilContext(t *testing.T) {
 	p := NewPipeline()
-	_, err := p.Retrieve(nil, "query", 5)
+	_, err := p.Retrieve(nil, "query", 5) //nolint:staticcheck // intentional nil context test
 	if err == nil {
 		t.Error("expected error for nil context")
 	}
