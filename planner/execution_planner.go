@@ -191,7 +191,7 @@ func (p *LLMPlanner) buildPrompt(pCtx *PlannerContext) string {
 		- Use "type": "tool" for mcp.* and builtin.* tools. Use "type": "skill" for skills. Use "type": "llm" for direct LLM responses.
 		- For simple conversation, greetings, or questions with no relevant tool/skill: use a single "llm" step with name="respond".
 		- Only generate steps using the available skills/tools listed above. Never invent skill or tool names.
-		- Reference earlier step outputs with {{step_name}} in arguments. Use {{step_name.field}} for JSON results.
+		- Reference earlier step outputs with {{step_name}} in arguments. The output replaces the entire placeholder. Do NOT use {{step_name.field}} — always use {{step_name}}.
 	/no_think`)
 
 	return sb.String()

@@ -59,9 +59,6 @@ type AgentConfig struct {
 	Registry  SkillRegistry
 	Runtime   *assistant.AssistantRuntime
 
-	// SideEffects handles persistence and audit. Defaults to noop if nil.
-	SideEffects SideEffects
-
 	// ContextAssembler enriches conversation history via memory retrieval.
 	// Optional — nil = no enrichment.
 	ContextAssembler corecontext.ContextAssembler
