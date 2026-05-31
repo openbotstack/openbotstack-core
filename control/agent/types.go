@@ -3,9 +3,7 @@ package agent
 import (
 	"errors"
 	"fmt"
-	"github.com/openbotstack/openbotstack-core/control/skills"
 	"github.com/openbotstack/openbotstack-core/execution"
-	regSkills "github.com/openbotstack/openbotstack-core/registry/skills"
 )
 
 // Common errors for the agent package.
@@ -19,16 +17,6 @@ var (
 	// ErrNoSkillsAvailable is returned when no skills are registered.
 	ErrNoSkillsAvailable = errors.New("agent: no skills available for planning")
 )
-
-// SkillDescriptorFromSkill converts a skills.Skill to a skills.SkillDescriptor.
-func SkillDescriptorFromSkill(s regSkills.Skill) skills.SkillDescriptor {
-	return skills.SkillDescriptor{
-		ID:          s.ID(),
-		Name:        s.Name(),
-		Description: s.Description(),
-		InputSchema: s.InputSchema(),
-	}
-}
 
 // MessageRequest represents input to the Agent.
 type MessageRequest struct {

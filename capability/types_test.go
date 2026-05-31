@@ -3,7 +3,7 @@ package capability
 import (
 	"testing"
 
-	skills "github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 func TestCapabilityKind_Values(t *testing.T) {
@@ -28,7 +28,7 @@ func TestCapabilityDescriptor_Fields(t *testing.T) {
 		ID:          "mcp.server1.tool1",
 		Name:        "tool1",
 		Description: "A test tool",
-		InputSchema: &skills.JSONSchema{Type: "object"},
+		InputSchema: &types.JSONSchema{Type: "object"},
 		Kind:        string(CapabilityKindMCP),
 		SourceID:    "server1",
 	}

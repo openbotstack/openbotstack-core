@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	skills "github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 // --- mapToolChoiceToOpenAI tests ---
@@ -17,7 +17,7 @@ func TestMapToolChoiceToOpenAI_Nil(t *testing.T) {
 }
 
 func TestMapToolChoiceToOpenAI_Auto(t *testing.T) {
-	result := mapToolChoiceToOpenAI(skills.ToolChoiceAuto)
+	result := mapToolChoiceToOpenAI(types.ToolChoiceAuto)
 	s, ok := result.(string)
 	if !ok {
 		t.Fatalf("expected string, got %T", result)
@@ -28,7 +28,7 @@ func TestMapToolChoiceToOpenAI_Auto(t *testing.T) {
 }
 
 func TestMapToolChoiceToOpenAI_Required(t *testing.T) {
-	result := mapToolChoiceToOpenAI(skills.ToolChoiceRequired)
+	result := mapToolChoiceToOpenAI(types.ToolChoiceRequired)
 	s, ok := result.(string)
 	if !ok {
 		t.Fatalf("expected string, got %T", result)
@@ -39,7 +39,7 @@ func TestMapToolChoiceToOpenAI_Required(t *testing.T) {
 }
 
 func TestMapToolChoiceToOpenAI_None(t *testing.T) {
-	result := mapToolChoiceToOpenAI(skills.ToolChoiceNone)
+	result := mapToolChoiceToOpenAI(types.ToolChoiceNone)
 	s, ok := result.(string)
 	if !ok {
 		t.Fatalf("expected string, got %T", result)
@@ -50,7 +50,7 @@ func TestMapToolChoiceToOpenAI_None(t *testing.T) {
 }
 
 func TestMapToolChoiceToOpenAI_Specific(t *testing.T) {
-	result := mapToolChoiceToOpenAI(skills.ToolChoiceSpecific{Name: "search"})
+	result := mapToolChoiceToOpenAI(types.ToolChoiceSpecific{Name: "search"})
 	tc, ok := result.(openAIToolChoice)
 	if !ok {
 		t.Fatalf("expected openAIToolChoice, got %T", result)
@@ -64,7 +64,7 @@ func TestMapToolChoiceToOpenAI_Specific(t *testing.T) {
 }
 
 func TestMapToolChoiceToOpenAI_Serialization_Specific(t *testing.T) {
-	result := mapToolChoiceToOpenAI(skills.ToolChoiceSpecific{Name: "calc"})
+	result := mapToolChoiceToOpenAI(types.ToolChoiceSpecific{Name: "calc"})
 	data, err := json.Marshal(result)
 	if err != nil {
 		t.Fatalf("marshal error: %v", err)
@@ -76,7 +76,7 @@ func TestMapToolChoiceToOpenAI_Serialization_Specific(t *testing.T) {
 }
 
 func TestMapToolChoiceToOpenAI_Serialization_Auto(t *testing.T) {
-	result := mapToolChoiceToOpenAI(skills.ToolChoiceAuto)
+	result := mapToolChoiceToOpenAI(types.ToolChoiceAuto)
 	data, err := json.Marshal(result)
 	if err != nil {
 		t.Fatalf("marshal error: %v", err)
@@ -88,7 +88,7 @@ func TestMapToolChoiceToOpenAI_Serialization_Auto(t *testing.T) {
 }
 
 func TestMapToolChoiceToOpenAI_UnknownMode(t *testing.T) {
-	result := mapToolChoiceToOpenAI(skills.ToolChoiceMode("unknown"))
+	result := mapToolChoiceToOpenAI(types.ToolChoiceMode("unknown"))
 	if result != nil {
 		t.Errorf("unknown mode should return nil, got %v", result)
 	}
@@ -111,7 +111,7 @@ func TestMapToolChoiceToAnthropic_Nil(t *testing.T) {
 }
 
 func TestMapToolChoiceToAnthropic_Auto(t *testing.T) {
-	result := mapToolChoiceToAnthropic(skills.ToolChoiceAuto)
+	result := mapToolChoiceToAnthropic(types.ToolChoiceAuto)
 	s, ok := result.(string)
 	if !ok {
 		t.Fatalf("expected string, got %T", result)
@@ -122,7 +122,7 @@ func TestMapToolChoiceToAnthropic_Auto(t *testing.T) {
 }
 
 func TestMapToolChoiceToAnthropic_Required(t *testing.T) {
-	result := mapToolChoiceToAnthropic(skills.ToolChoiceRequired)
+	result := mapToolChoiceToAnthropic(types.ToolChoiceRequired)
 	tc, ok := result.(anthropicToolChoice)
 	if !ok {
 		t.Fatalf("expected anthropicToolChoice, got %T", result)
@@ -133,7 +133,7 @@ func TestMapToolChoiceToAnthropic_Required(t *testing.T) {
 }
 
 func TestMapToolChoiceToAnthropic_None(t *testing.T) {
-	result := mapToolChoiceToAnthropic(skills.ToolChoiceNone)
+	result := mapToolChoiceToAnthropic(types.ToolChoiceNone)
 	s, ok := result.(string)
 	if !ok {
 		t.Fatalf("expected string, got %T", result)
@@ -144,7 +144,7 @@ func TestMapToolChoiceToAnthropic_None(t *testing.T) {
 }
 
 func TestMapToolChoiceToAnthropic_Specific(t *testing.T) {
-	result := mapToolChoiceToAnthropic(skills.ToolChoiceSpecific{Name: "search"})
+	result := mapToolChoiceToAnthropic(types.ToolChoiceSpecific{Name: "search"})
 	tc, ok := result.(anthropicToolChoice)
 	if !ok {
 		t.Fatalf("expected anthropicToolChoice, got %T", result)
@@ -158,7 +158,7 @@ func TestMapToolChoiceToAnthropic_Specific(t *testing.T) {
 }
 
 func TestMapToolChoiceToAnthropic_Serialization_Specific(t *testing.T) {
-	result := mapToolChoiceToAnthropic(skills.ToolChoiceSpecific{Name: "calc"})
+	result := mapToolChoiceToAnthropic(types.ToolChoiceSpecific{Name: "calc"})
 	data, err := json.Marshal(result)
 	if err != nil {
 		t.Fatalf("marshal error: %v", err)
@@ -170,7 +170,7 @@ func TestMapToolChoiceToAnthropic_Serialization_Specific(t *testing.T) {
 }
 
 func TestMapToolChoiceToAnthropic_UnknownMode(t *testing.T) {
-	result := mapToolChoiceToAnthropic(skills.ToolChoiceMode("unknown"))
+	result := mapToolChoiceToAnthropic(types.ToolChoiceMode("unknown"))
 	if result != nil {
 		t.Errorf("unknown mode should return nil, got %v", result)
 	}
@@ -186,21 +186,21 @@ func TestMapToolChoiceToAnthropic_WrongType(t *testing.T) {
 // --- ToolChoiceMode constant tests ---
 
 func TestToolChoiceMode_Values(t *testing.T) {
-	if skills.ToolChoiceAuto != "auto" {
-		t.Errorf("expected 'auto', got %q", skills.ToolChoiceAuto)
+	if types.ToolChoiceAuto != "auto" {
+		t.Errorf("expected 'auto', got %q", types.ToolChoiceAuto)
 	}
-	if skills.ToolChoiceRequired != "required" {
-		t.Errorf("expected 'required', got %q", skills.ToolChoiceRequired)
+	if types.ToolChoiceRequired != "required" {
+		t.Errorf("expected 'required', got %q", types.ToolChoiceRequired)
 	}
-	if skills.ToolChoiceNone != "none" {
-		t.Errorf("expected 'none', got %q", skills.ToolChoiceNone)
+	if types.ToolChoiceNone != "none" {
+		t.Errorf("expected 'none', got %q", types.ToolChoiceNone)
 	}
 }
 
 // --- ToolChoiceSpecific tests ---
 
 func TestToolChoiceSpecific_Field(t *testing.T) {
-	tc := skills.ToolChoiceSpecific{Name: "my_tool"}
+	tc := types.ToolChoiceSpecific{Name: "my_tool"}
 	if tc.Name != "my_tool" {
 		t.Errorf("expected 'my_tool', got %q", tc.Name)
 	}
@@ -209,15 +209,15 @@ func TestToolChoiceSpecific_Field(t *testing.T) {
 // --- GenerateRequest ToolChoice field test ---
 
 func TestGenerateRequest_ToolChoice(t *testing.T) {
-	req := skills.GenerateRequest{
-		ToolChoice: skills.ToolChoiceAuto,
+	req := types.GenerateRequest{
+		ToolChoice: types.ToolChoiceAuto,
 	}
-	if req.ToolChoice != skills.ToolChoiceAuto {
+	if req.ToolChoice != types.ToolChoiceAuto {
 		t.Errorf("expected ToolChoiceAuto, got %v", req.ToolChoice)
 	}
 
-	req.ToolChoice = skills.ToolChoiceSpecific{Name: "search"}
-	if tc, ok := req.ToolChoice.(skills.ToolChoiceSpecific); !ok || tc.Name != "search" {
+	req.ToolChoice = types.ToolChoiceSpecific{Name: "search"}
+	if tc, ok := req.ToolChoice.(types.ToolChoiceSpecific); !ok || tc.Name != "search" {
 		t.Errorf("expected ToolChoiceSpecific{name:search}, got %v", req.ToolChoice)
 	}
 }

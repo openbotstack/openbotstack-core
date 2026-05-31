@@ -5,21 +5,21 @@ import (
 	"testing"
 	"time"
 
-	skills "github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 	"github.com/openbotstack/openbotstack-core/mcp"
 )
 
 // stubSkill implements registry.Skill for testing.
 type stubSkill struct {
 	id, name, desc string
-	schema         *skills.JSONSchema
+	schema         *types.JSONSchema
 }
 
 func (s *stubSkill) ID() string                      { return s.id }
 func (s *stubSkill) Name() string                    { return s.name }
 func (s *stubSkill) Description() string             { return s.desc }
-func (s *stubSkill) InputSchema() *skills.JSONSchema { return s.schema }
-func (s *stubSkill) OutputSchema() *skills.JSONSchema { return nil }
+func (s *stubSkill) InputSchema() *types.JSONSchema { return s.schema }
+func (s *stubSkill) OutputSchema() *types.JSONSchema { return nil }
 func (s *stubSkill) RequiredPermissions() []string    { return nil }
 func (s *stubSkill) Timeout() time.Duration           { return 30 * time.Second }
 func (s *stubSkill) Validate() error                  { return nil }
@@ -27,7 +27,7 @@ func (s *stubSkill) Validate() error                  { return nil }
 // --- Skill adapter tests ---
 
 func TestNewFromSkill(t *testing.T) {
-	s := &stubSkill{id: "core/search", name: "Search", desc: "Search documents", schema: &skills.JSONSchema{Type: "object"}}
+	s := &stubSkill{id: "core/search", name: "Search", desc: "Search documents", schema: &types.JSONSchema{Type: "object"}}
 	adapter := NewFromSkill(s)
 
 	if adapter.ID() != "core/search" {
@@ -59,9 +59,9 @@ func TestNewFromMCP(t *testing.T) {
 	tool := mcp.ClientTool{
 		Name:        "search",
 		Description: "Search documents",
-		InputSchema: &skills.JSONSchema{
+		InputSchema: &types.JSONSchema{
 			Type: "object",
-			Properties: map[string]*skills.JSONSchema{
+			Properties: map[string]*types.JSONSchema{
 				"query": {Type: "string"},
 			},
 			Required: []string{"query"},
@@ -81,9 +81,9 @@ func TestNewFromMCP(t *testing.T) {
 }
 
 func TestNewFromMCP_InputSchemaPassthrough(t *testing.T) {
-	schema := &skills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "object",
-		Properties: map[string]*skills.JSONSchema{
+		Properties: map[string]*types.JSONSchema{
 			"expression": {Type: "string"},
 		},
 	}
@@ -120,7 +120,7 @@ func TestNewFromMCP_InRegistry(t *testing.T) {
 	tool := mcp.ClientTool{
 		Name:        "search",
 		Description: "Search",
-		InputSchema: &skills.JSONSchema{Type: "object"},
+		InputSchema: &types.JSONSchema{Type: "object"},
 	}
 	adapter := NewFromMCP("srv1", tool)
 
@@ -140,7 +140,7 @@ func TestNewFromMCP_InRegistry(t *testing.T) {
 // --- Native adapter tests ---
 
 func TestNewFromNative(t *testing.T) {
-	schema := &skills.JSONSchema{Type: "object"}
+	schema := &types.JSONSchema{Type: "object"}
 	adapter := NewFromNative("builtin.now", "now", "Current UTC timestamp", schema)
 
 	if adapter.ID() != "builtin.now" {

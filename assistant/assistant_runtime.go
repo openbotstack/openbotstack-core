@@ -1,7 +1,7 @@
 package assistant
 
 import (
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 // AssistantRuntime represents the active, request-scoped state of an assistant.
@@ -36,5 +36,5 @@ type AssistantConfig struct {
 	Skills          []string
 	Policies        []string
 	MemoryScope     string
-	ToolAllowedList []skills.CapabilityType
+	ToolAllowedList []aitypes.CapabilityType
 }

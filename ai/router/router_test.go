@@ -4,7 +4,7 @@ import (
 	"github.com/openbotstack/openbotstack-core/ai"
 	"github.com/openbotstack/openbotstack-core/ai/providers"
 	"github.com/openbotstack/openbotstack-core/ai/router"
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 	"testing"
 )
 
@@ -44,8 +44,8 @@ func TestDefaultRouterRoute(t *testing.T) {
 
 	// Route for text_generation + tool_calling
 	provider, err := router.Route(
-		[]skills.CapabilityType{skills.CapTextGeneration, skills.CapToolCalling},
-		skills.ModelConstraints{},
+		[]types.CapabilityType{types.CapTextGeneration, types.CapToolCalling},
+		types.ModelConstraints{},
 	)
 	if err != nil {
 		t.Fatalf("Route failed: %v", err)
@@ -62,8 +62,8 @@ func TestDefaultRouterRouteNoMatch(t *testing.T) {
 
 	// Route for embedding (Claude doesn't support)
 	_, err := router.Route(
-		[]skills.CapabilityType{skills.CapEmbedding},
-		skills.ModelConstraints{},
+		[]types.CapabilityType{types.CapEmbedding},
+		types.ModelConstraints{},
 	)
 
 	if err != ai.ErrNoMatchingProvider {
@@ -80,8 +80,8 @@ func TestDefaultRouterRoutePreferredProvider(t *testing.T) {
 
 	// Route with preferred provider
 	provider, err := router.Route(
-		[]skills.CapabilityType{skills.CapTextGeneration},
-		skills.ModelConstraints{PreferredProvider: "anthropic/claude-3-opus-20240229"},
+		[]types.CapabilityType{types.CapTextGeneration},
+		types.ModelConstraints{PreferredProvider: "anthropic/claude-3-opus-20240229"},
 	)
 	if err != nil {
 		t.Fatalf("Route failed: %v", err)

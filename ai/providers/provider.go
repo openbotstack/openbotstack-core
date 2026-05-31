@@ -2,7 +2,8 @@ package providers
 
 import (
 	"context"
-	"github.com/openbotstack/openbotstack-core/control/skills"
+
+	"github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 // ModelProvider abstracts a model backend (Claude, OpenAI, etc.).
@@ -15,13 +16,13 @@ type ModelProvider interface {
 	ID() string
 
 	// Capabilities returns the list of capabilities this provider supports.
-	Capabilities() []skills.CapabilityType
+	Capabilities() []types.CapabilityType
 
 	// Generate performs a model generation call.
-	Generate(ctx context.Context, req skills.GenerateRequest) (*skills.GenerateResponse, error)
+	Generate(ctx context.Context, req types.GenerateRequest) (*types.GenerateResponse, error)
 
 	// Embed generates embeddings for the given texts.
-	// Only available if skills.CapEmbedding is in Capabilities().
+	// Only available if types.CapEmbedding is in Capabilities().
 	Embed(ctx context.Context, texts []string) ([][]float32, error)
 }
 
@@ -29,7 +30,7 @@ type ModelProvider interface {
 type ModelRouter interface {
 	// Route selects the best provider for the given requirements.
 	// Returns ai.ErrNoMatchingProvider if no provider satisfies the requirements.
-	Route(requirements []skills.CapabilityType, constraints skills.ModelConstraints) (ModelProvider, error)
+	Route(requirements []types.CapabilityType, constraints types.ModelConstraints) (ModelProvider, error)
 
 	// Register adds a provider to the router.
 	Register(provider ModelProvider) error
@@ -48,5 +49,5 @@ type StreamingModelProvider interface {
 	// The channel is closed when the stream ends (either naturally or on error).
 	// The caller MUST drain the channel (range over it) to avoid goroutine leaks.
 	// Context cancellation closes the channel with an error chunk.
-	GenerateStream(ctx context.Context, req skills.GenerateRequest) (<-chan skills.StreamChunk, error)
+	GenerateStream(ctx context.Context, req types.GenerateRequest) (<-chan types.StreamChunk, error)
 }

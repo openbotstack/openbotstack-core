@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"fmt"
 
-	skills "github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 // openAIToolChoice represents tool_choice in OpenAI-specific format (function selection only).
@@ -21,7 +21,7 @@ type anthropicToolChoice struct {
 	Name string `json:"name,omitempty"`
 }
 
-// mapToolChoiceToOpenAI converts skills.ToolChoice to OpenAI-compatible format.
+// mapToolChoiceToOpenAI converts types.ToolChoice to OpenAI-compatible format.
 // Returns nil for default behavior.
 // OpenAI expects plain strings for auto/required/none, object only for function selection.
 func mapToolChoiceToOpenAI(tc any) any {
@@ -30,19 +30,19 @@ func mapToolChoiceToOpenAI(tc any) any {
 	}
 
 	switch v := tc.(type) {
-	case skills.ToolChoiceMode:
+	case types.ToolChoiceMode:
 		switch v {
-		case skills.ToolChoiceAuto:
+		case types.ToolChoiceAuto:
 			return "auto"
-		case skills.ToolChoiceRequired:
+		case types.ToolChoiceRequired:
 			return "required"
-		case skills.ToolChoiceNone:
+		case types.ToolChoiceNone:
 			return "none"
 		default:
 			slog.Warn("mapToolChoiceToOpenAI: unknown ToolChoiceMode, ignoring", "value", string(v))
 			return nil
 		}
-	case skills.ToolChoiceSpecific:
+	case types.ToolChoiceSpecific:
 		result := openAIToolChoice{Type: "function"}
 		result.Function.Name = v.Name
 		return result
@@ -52,7 +52,7 @@ func mapToolChoiceToOpenAI(tc any) any {
 	}
 }
 
-// mapToolChoiceToAnthropic converts skills.ToolChoice to Anthropic format.
+// mapToolChoiceToAnthropic converts types.ToolChoice to Anthropic format.
 // Returns nil for default behavior.
 // Anthropic accepts strings for auto/none, object for any/tool modes.
 func mapToolChoiceToAnthropic(tc any) any {
@@ -61,19 +61,19 @@ func mapToolChoiceToAnthropic(tc any) any {
 	}
 
 	switch v := tc.(type) {
-	case skills.ToolChoiceMode:
+	case types.ToolChoiceMode:
 		switch v {
-		case skills.ToolChoiceAuto:
+		case types.ToolChoiceAuto:
 			return "auto"
-		case skills.ToolChoiceRequired:
+		case types.ToolChoiceRequired:
 			return anthropicToolChoice{Type: "any"}
-		case skills.ToolChoiceNone:
+		case types.ToolChoiceNone:
 			return "none"
 		default:
 			slog.Warn("mapToolChoiceToAnthropic: unknown ToolChoiceMode, ignoring", "value", string(v))
 			return nil
 		}
-	case skills.ToolChoiceSpecific:
+	case types.ToolChoiceSpecific:
 		return anthropicToolChoice{Type: "tool", Name: v.Name}
 	default:
 		slog.Warn("mapToolChoiceToAnthropic: unrecognized tool_choice type, ignoring", "type", fmt.Sprintf("%T", tc))

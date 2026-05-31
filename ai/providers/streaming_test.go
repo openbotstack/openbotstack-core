@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 func TestStreamingMultipleChunks(t *testing.T) {
@@ -26,14 +26,14 @@ func TestStreamingMultipleChunks(t *testing.T) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	ch, err := openAICompatibleStream(
 		context.Background(), client, server.URL, "key", "model", nil,
-		skills.GenerateRequest{Messages: []skills.Message{{Role: "user", Content: "hi"}}},
+		types.GenerateRequest{Messages: []types.Message{{Role: "user", Content: "hi"}}},
 		0,
 	)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	var chunks []skills.StreamChunk
+	var chunks []types.StreamChunk
 	for chunk := range ch {
 		chunks = append(chunks, chunk)
 		if chunk.Error != nil {
@@ -71,11 +71,11 @@ func TestStreamingSingleChunk(t *testing.T) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	ch, _ := openAICompatibleStream(
 		context.Background(), client, server.URL, "key", "model", nil,
-		skills.GenerateRequest{Messages: []skills.Message{{Role: "user", Content: "hi"}}},
+		types.GenerateRequest{Messages: []types.Message{{Role: "user", Content: "hi"}}},
 		0,
 	)
 
-	var chunks []skills.StreamChunk
+	var chunks []types.StreamChunk
 	for chunk := range ch {
 		chunks = append(chunks, chunk)
 	}
@@ -101,11 +101,11 @@ func TestStreamingMalformedJSON(t *testing.T) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	ch, _ := openAICompatibleStream(
 		context.Background(), client, server.URL, "key", "model", nil,
-		skills.GenerateRequest{Messages: []skills.Message{{Role: "user", Content: "hi"}}},
+		types.GenerateRequest{Messages: []types.Message{{Role: "user", Content: "hi"}}},
 		0,
 	)
 
-	var chunks []skills.StreamChunk
+	var chunks []types.StreamChunk
 	for chunk := range ch {
 		if chunk.Error == nil {
 			chunks = append(chunks, chunk)
@@ -142,7 +142,7 @@ func TestStreamingContextCancellation(t *testing.T) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	ch, _ := openAICompatibleStream(
 		ctx, client, server.URL, "key", "model", nil,
-		skills.GenerateRequest{Messages: []skills.Message{{Role: "user", Content: "hi"}}},
+		types.GenerateRequest{Messages: []types.Message{{Role: "user", Content: "hi"}}},
 		0,
 	)
 
@@ -174,11 +174,11 @@ func TestStreamingEmptyLines(t *testing.T) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	ch, _ := openAICompatibleStream(
 		context.Background(), client, server.URL, "key", "model", nil,
-		skills.GenerateRequest{Messages: []skills.Message{{Role: "user", Content: "hi"}}},
+		types.GenerateRequest{Messages: []types.Message{{Role: "user", Content: "hi"}}},
 		0,
 	)
 
-	var chunks []skills.StreamChunk
+	var chunks []types.StreamChunk
 	for chunk := range ch {
 		if chunk.Error == nil {
 			chunks = append(chunks, chunk)
@@ -206,14 +206,14 @@ func TestStreamingToolCallAccumulation(t *testing.T) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	ch, err := openAICompatibleStream(
 		context.Background(), client, server.URL, "key", "model", nil,
-		skills.GenerateRequest{Messages: []skills.Message{{Role: "user", Content: "weather?"}}},
+		types.GenerateRequest{Messages: []types.Message{{Role: "user", Content: "weather?"}}},
 		0,
 	)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	var chunks []skills.StreamChunk
+	var chunks []types.StreamChunk
 	for chunk := range ch {
 		if chunk.Error != nil {
 			t.Fatalf("Unexpected stream error: %v", chunk.Error)

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 func getTestURL() string {
@@ -42,8 +42,8 @@ func TestIntegration_OpenAICompatible_Sync(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	resp, err := provider.Generate(ctx, skills.GenerateRequest{
-		Messages:    []skills.Message{{Role: "user", Content: "Say hello in one word."}},
+	resp, err := provider.Generate(ctx, types.GenerateRequest{
+		Messages:    []types.Message{{Role: "user", Content: "Say hello in one word."}},
 		MaxTokens:   10,
 		Temperature: 0.1,
 	})
@@ -84,8 +84,8 @@ func TestIntegration_OpenAICompatible_Stream(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	ch, err := sp.GenerateStream(ctx, skills.GenerateRequest{
-		Messages:    []skills.Message{{Role: "user", Content: "Count from 1 to 5."}},
+	ch, err := sp.GenerateStream(ctx, types.GenerateRequest{
+		Messages:    []types.Message{{Role: "user", Content: "Count from 1 to 5."}},
 		MaxTokens:   50,
 		Temperature: 0.1,
 	})
@@ -93,7 +93,7 @@ func TestIntegration_OpenAICompatible_Stream(t *testing.T) {
 		t.Fatalf("GenerateStream failed: %v", err)
 	}
 
-	var chunks []skills.StreamChunk
+	var chunks []types.StreamChunk
 	for chunk := range ch {
 		if chunk.Error != nil {
 			t.Fatalf("Stream error: %v", chunk.Error)

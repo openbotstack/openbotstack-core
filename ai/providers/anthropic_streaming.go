@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/openbotstack/openbotstack-core/ai"
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 // ----- Anthropic SSE event types -----
@@ -54,9 +54,9 @@ func anthropicMessagesStream(
 	ctx context.Context,
 	client *http.Client,
 	baseURL, apiKey, model string,
-	req skills.GenerateRequest,
+	req types.GenerateRequest,
 	maxRetries int,
-) (<-chan skills.StreamChunk, error) {
+) (<-chan types.StreamChunk, error) {
 	// Build request body (same as generate, but with stream=true)
 	body := anthropicMessagesRequest{
 		Model:  model,
@@ -164,7 +164,7 @@ func anthropicMessagesStream(
 	}
 
 	// Start goroutine to read Anthropic SSE stream
-	ch := make(chan skills.StreamChunk, 64)
+	ch := make(chan types.StreamChunk, 64)
 	go func() {
 		defer func() { _ = resp.Body.Close() }()
 		defer close(ch)
@@ -229,7 +229,7 @@ func anthropicMessagesStream(
 					toolCalls := buildToolCalls(toolAccum, toolOrder)
 					if len(toolCalls) > 0 {
 						select {
-						case ch <- skills.StreamChunk{ToolCalls: toolCalls}:
+						case ch <- types.StreamChunk{ToolCalls: toolCalls}:
 						case <-ctx.Done():
 							sendErrorChunk(ch, ctx.Err())
 							return
@@ -244,7 +244,7 @@ func anthropicMessagesStream(
 					continue
 				}
 
-				sc := skills.StreamChunk{}
+				sc := types.StreamChunk{}
 				if evt.Delta.Type == "text_delta" {
 					sc.Content = evt.Delta.Text
 				} else if evt.Delta.Type == "input_json_delta" {
@@ -279,11 +279,11 @@ func anthropicMessagesStream(
 					continue
 				}
 
-				sc := skills.StreamChunk{
+				sc := types.StreamChunk{
 					FinishReason: evt.Delta.StopReason,
 				}
 				if evt.Usage != nil {
-					sc.Usage = skills.TokenUsage{
+					sc.Usage = types.TokenUsage{
 						CompletionTokens: evt.Usage.OutputTokens,
 					}
 				}
@@ -304,7 +304,7 @@ func anthropicMessagesStream(
 
 		if err := scanner.Err(); err != nil && err != io.EOF {
 			select {
-			case ch <- skills.StreamChunk{Error: fmt.Errorf("anthropic stream read error: %w", err)}:
+			case ch <- types.StreamChunk{Error: fmt.Errorf("anthropic stream read error: %w", err)}:
 			default:
 			}
 		}
@@ -314,14 +314,14 @@ func anthropicMessagesStream(
 }
 
 // buildToolCalls constructs the current tool call state from accumulators.
-func buildToolCalls(accum map[int]*anthropicStreamToolAccum, order []int) []skills.ToolCall {
+func buildToolCalls(accum map[int]*anthropicStreamToolAccum, order []int) []types.ToolCall {
 	if len(accum) == 0 {
 		return nil
 	}
-	result := make([]skills.ToolCall, 0, len(accum))
+	result := make([]types.ToolCall, 0, len(accum))
 	for _, idx := range order {
 		if tc, ok := accum[idx]; ok {
-			result = append(result, skills.ToolCall{
+			result = append(result, types.ToolCall{
 				ID:        tc.ID,
 				Name:      tc.Name,
 				Arguments: tc.JSON.String(),
@@ -332,9 +332,9 @@ func buildToolCalls(accum map[int]*anthropicStreamToolAccum, order []int) []skil
 }
 
 // sendErrorChunk sends an error chunk to the channel (non-blocking).
-func sendErrorChunk(ch chan skills.StreamChunk, err error) {
+func sendErrorChunk(ch chan types.StreamChunk, err error) {
 	select {
-	case ch <- skills.StreamChunk{Error: err}:
+	case ch <- types.StreamChunk{Error: err}:
 	default:
 	}
 }

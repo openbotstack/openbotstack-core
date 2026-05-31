@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/openbotstack/openbotstack-core/ai"
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 // Default base URLs for known providers.
@@ -53,7 +53,7 @@ type chatTool struct {
 type chatFunction struct {
 	Name        string           `json:"name"`
 	Description string           `json:"description,omitempty"`
-	Parameters  *skills.JSONSchema `json:"parameters,omitempty"`
+	Parameters  *types.JSONSchema `json:"parameters,omitempty"`
 }
 
 type chatResponse struct {
@@ -130,9 +130,9 @@ func openAICompatibleGenerate(
 	client *http.Client,
 	baseURL, apiKey, model string,
 	headers map[string]string,
-	req skills.GenerateRequest,
+	req types.GenerateRequest,
 	maxRetries int,
-) (*skills.GenerateResponse, error) {
+) (*types.GenerateResponse, error) {
 	// Build messages
 	messages := make([]chatMessage, 0, len(req.Messages))
 	for _, m := range req.Messages {
@@ -237,8 +237,8 @@ func openAICompatibleGenerate(
 			}
 
 			latency := time.Since(start)
-			result := &skills.GenerateResponse{
-				Usage: skills.TokenUsage{
+			result := &types.GenerateResponse{
+				Usage: types.TokenUsage{
 					PromptTokens:     chatResp.Usage.PromptTokens,
 					CompletionTokens: chatResp.Usage.CompletionTokens,
 					TotalTokens:      chatResp.Usage.TotalTokens,
@@ -253,7 +253,7 @@ func openAICompatibleGenerate(
 				}
 				result.FinishReason = choice.FinishReason
 				for _, tc := range choice.Message.ToolCalls {
-					result.ToolCalls = append(result.ToolCalls, skills.ToolCall{
+					result.ToolCalls = append(result.ToolCalls, types.ToolCall{
 						ID:        tc.ID,
 						Name:      tc.Function.Name,
 						Arguments: tc.Function.Arguments,
@@ -384,24 +384,24 @@ func (p *OpenAIProvider) ID() string {
 	return "openai/" + p.modelName
 }
 
-func (p *OpenAIProvider) Capabilities() []skills.CapabilityType {
-	return []skills.CapabilityType{
-		skills.CapTextGeneration,
-		skills.CapToolCalling,
-		skills.CapJSONMode,
-		skills.CapVision,
-		skills.CapEmbedding,
+func (p *OpenAIProvider) Capabilities() []types.CapabilityType {
+	return []types.CapabilityType{
+		types.CapTextGeneration,
+		types.CapToolCalling,
+		types.CapJSONMode,
+		types.CapVision,
+		types.CapEmbedding,
 	}
 }
 
-func (p *OpenAIProvider) Generate(ctx context.Context, req skills.GenerateRequest) (*skills.GenerateResponse, error) {
+func (p *OpenAIProvider) Generate(ctx context.Context, req types.GenerateRequest) (*types.GenerateResponse, error) {
 	if p.apiKey == "" {
 		return nil, fmt.Errorf("openai: API key not configured")
 	}
 	return openAICompatibleGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, nil, req, 0)
 }
 
-func (p *OpenAIProvider) GenerateStream(ctx context.Context, req skills.GenerateRequest) (<-chan skills.StreamChunk, error) {
+func (p *OpenAIProvider) GenerateStream(ctx context.Context, req types.GenerateRequest) (<-chan types.StreamChunk, error) {
 	if p.apiKey == "" {
 		return nil, fmt.Errorf("openai: API key not configured")
 	}
@@ -444,16 +444,16 @@ func (p *ClaudeProvider) ID() string {
 	return "anthropic/" + p.modelName
 }
 
-func (p *ClaudeProvider) Capabilities() []skills.CapabilityType {
-	return []skills.CapabilityType{
-		skills.CapTextGeneration,
-		skills.CapToolCalling,
-		skills.CapVision,
-		skills.CapStreaming,
+func (p *ClaudeProvider) Capabilities() []types.CapabilityType {
+	return []types.CapabilityType{
+		types.CapTextGeneration,
+		types.CapToolCalling,
+		types.CapVision,
+		types.CapStreaming,
 	}
 }
 
-func (p *ClaudeProvider) Generate(ctx context.Context, req skills.GenerateRequest) (*skills.GenerateResponse, error) {
+func (p *ClaudeProvider) Generate(ctx context.Context, req types.GenerateRequest) (*types.GenerateResponse, error) {
 	if p.apiKey == "" {
 		return nil, fmt.Errorf("claude: API key not configured")
 	}
@@ -461,7 +461,7 @@ func (p *ClaudeProvider) Generate(ctx context.Context, req skills.GenerateReques
 }
 
 // GenerateStream implements StreamingModelProvider for SSE streaming.
-func (p *ClaudeProvider) GenerateStream(ctx context.Context, req skills.GenerateRequest) (<-chan skills.StreamChunk, error) {
+func (p *ClaudeProvider) GenerateStream(ctx context.Context, req types.GenerateRequest) (<-chan types.StreamChunk, error) {
 	if p.apiKey == "" {
 		return nil, fmt.Errorf("claude: API key not configured")
 	}
@@ -497,21 +497,21 @@ func (p *ModelScopeProvider) ID() string {
 	return "modelscope/" + p.modelName
 }
 
-func (p *ModelScopeProvider) Capabilities() []skills.CapabilityType {
-	return []skills.CapabilityType{
-		skills.CapTextGeneration,
-		skills.CapToolCalling,
+func (p *ModelScopeProvider) Capabilities() []types.CapabilityType {
+	return []types.CapabilityType{
+		types.CapTextGeneration,
+		types.CapToolCalling,
 	}
 }
 
-func (p *ModelScopeProvider) Generate(ctx context.Context, req skills.GenerateRequest) (*skills.GenerateResponse, error) {
+func (p *ModelScopeProvider) Generate(ctx context.Context, req types.GenerateRequest) (*types.GenerateResponse, error) {
 	if p.apiKey == "" {
 		return nil, fmt.Errorf("modelscope: API key not configured")
 	}
 	return openAICompatibleGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, nil, req, 0)
 }
 
-func (p *ModelScopeProvider) GenerateStream(ctx context.Context, req skills.GenerateRequest) (<-chan skills.StreamChunk, error) {
+func (p *ModelScopeProvider) GenerateStream(ctx context.Context, req types.GenerateRequest) (<-chan types.StreamChunk, error) {
 	if p.apiKey == "" {
 		return nil, fmt.Errorf("modelscope: API key not configured")
 	}
@@ -547,21 +547,21 @@ func (p *SiliconFlowProvider) ID() string {
 	return "siliconflow/" + p.modelName
 }
 
-func (p *SiliconFlowProvider) Capabilities() []skills.CapabilityType {
-	return []skills.CapabilityType{
-		skills.CapTextGeneration,
-		skills.CapToolCalling,
+func (p *SiliconFlowProvider) Capabilities() []types.CapabilityType {
+	return []types.CapabilityType{
+		types.CapTextGeneration,
+		types.CapToolCalling,
 	}
 }
 
-func (p *SiliconFlowProvider) Generate(ctx context.Context, req skills.GenerateRequest) (*skills.GenerateResponse, error) {
+func (p *SiliconFlowProvider) Generate(ctx context.Context, req types.GenerateRequest) (*types.GenerateResponse, error) {
 	if p.apiKey == "" {
 		return nil, fmt.Errorf("siliconflow: API key not configured")
 	}
 	return openAICompatibleGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, nil, req, 0)
 }
 
-func (p *SiliconFlowProvider) GenerateStream(ctx context.Context, req skills.GenerateRequest) (<-chan skills.StreamChunk, error) {
+func (p *SiliconFlowProvider) GenerateStream(ctx context.Context, req types.GenerateRequest) (<-chan types.StreamChunk, error) {
 	if p.apiKey == "" {
 		return nil, fmt.Errorf("siliconflow: API key not configured")
 	}

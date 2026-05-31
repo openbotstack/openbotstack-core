@@ -3,7 +3,7 @@ package skills_test
 import (
 	"testing"
 
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 	registryskills "github.com/openbotstack/openbotstack-core/registry/skills"
 )
 
@@ -214,7 +214,7 @@ execution:
 	}
 }
 
-// Verify that the parsed manifest's InputSchema is compatible with skills.JSONSchema
+// Verify that the parsed manifest's InputSchema is compatible with types.JSONSchema
 func TestManifest_InputSchemaIsJSONSchema(t *testing.T) {
 	yaml := `
 id: core/test
@@ -233,9 +233,9 @@ input_schema:
 	if err != nil {
 		t.Fatalf("ParseManifest failed: %v", err)
 	}
-	// Verify it's a *skills.JSONSchema
+	// Verify it's a *types.JSONSchema
 	if manifest.InputSchema == nil {
-		t.Fatal("InputSchema should be *skills.JSONSchema")
+		t.Fatal("InputSchema should be *types.JSONSchema")
 	}
-	_ = skills.JSONSchema(*manifest.InputSchema)
+	_ = types.JSONSchema(*manifest.InputSchema)
 }

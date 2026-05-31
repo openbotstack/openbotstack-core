@@ -9,7 +9,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 // ============================================================================
@@ -310,9 +310,9 @@ func TestAssistantConfig_Construction(t *testing.T) {
 		Skills:      []string{"summarize"},
 		Policies:    []string{"default"},
 		MemoryScope: "tenant",
-		ToolAllowedList: []skills.CapabilityType{
-			skills.CapTextGeneration,
-			skills.CapToolCalling,
+		ToolAllowedList: []types.CapabilityType{
+			types.CapTextGeneration,
+			types.CapToolCalling,
 		},
 	}
 
@@ -325,8 +325,8 @@ func TestAssistantConfig_Construction(t *testing.T) {
 	if len(cfg.ToolAllowedList) != 2 {
 		t.Errorf("len(ToolAllowedList) = %d, want 2", len(cfg.ToolAllowedList))
 	}
-	if cfg.ToolAllowedList[0] != skills.CapTextGeneration {
-		t.Errorf("ToolAllowedList[0] = %q, want %q", cfg.ToolAllowedList[0], skills.CapTextGeneration)
+	if cfg.ToolAllowedList[0] != types.CapTextGeneration {
+		t.Errorf("ToolAllowedList[0] = %q, want %q", cfg.ToolAllowedList[0], types.CapTextGeneration)
 	}
 }
 

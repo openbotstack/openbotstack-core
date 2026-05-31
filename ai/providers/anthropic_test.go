@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 // --- Anthropic Messages API Generate tests ---
@@ -55,8 +55,8 @@ func TestAnthropicMessagesGenerate(t *testing.T) {
 	defer server.Close()
 
 	provider := NewClaudeProvider(server.URL, "test-api-key", "claude-3-opus-20240229")
-	resp, err := provider.Generate(context.Background(), skills.GenerateRequest{
-		Messages: []skills.Message{
+	resp, err := provider.Generate(context.Background(), types.GenerateRequest{
+		Messages: []types.Message{
 			{Role: "system", Content: "You are helpful."},
 			{Role: "user", Content: "Hello"},
 		},
@@ -124,9 +124,9 @@ func TestAnthropicMessagesGenerateWithToolCalls(t *testing.T) {
 	defer server.Close()
 
 	provider := NewClaudeProvider(server.URL, "test-key", "claude-3-opus-20240229")
-	resp, err := provider.Generate(context.Background(), skills.GenerateRequest{
-		Messages: []skills.Message{{Role: "user", Content: "What's the weather?"}},
-		Tools: []skills.ToolDefinition{
+	resp, err := provider.Generate(context.Background(), types.GenerateRequest{
+		Messages: []types.Message{{Role: "user", Content: "What's the weather?"}},
+		Tools: []types.ToolDefinition{
 			{Name: "get_weather", Description: "Get weather for a location"},
 		},
 	})
@@ -156,8 +156,8 @@ func TestAnthropicMessagesGenerateWithToolCalls(t *testing.T) {
 
 func TestAnthropicMessagesGenerateNoAPIKey(t *testing.T) {
 	provider := NewClaudeProvider("", "", "claude-3-opus-20240229")
-	_, err := provider.Generate(context.Background(), skills.GenerateRequest{
-		Messages: []skills.Message{{Role: "user", Content: "Hello"}},
+	_, err := provider.Generate(context.Background(), types.GenerateRequest{
+		Messages: []types.Message{{Role: "user", Content: "Hello"}},
 	})
 	if err == nil {
 		t.Error("Expected error for empty API key, got nil")
@@ -177,8 +177,8 @@ func TestAnthropicMessagesGenerateAuthError(t *testing.T) {
 	defer server.Close()
 
 	provider := NewClaudeProvider(server.URL, "bad-key", "claude-3-opus-20240229")
-	_, err := provider.Generate(context.Background(), skills.GenerateRequest{
-		Messages: []skills.Message{{Role: "user", Content: "Hello"}},
+	_, err := provider.Generate(context.Background(), types.GenerateRequest{
+		Messages: []types.Message{{Role: "user", Content: "Hello"}},
 	})
 	if err == nil {
 		t.Error("Expected error for 401 response")
@@ -192,8 +192,8 @@ func TestAnthropicMessagesGenerateRateLimit(t *testing.T) {
 	defer server.Close()
 
 	provider := NewClaudeProvider(server.URL, "key", "claude-3-opus-20240229")
-	_, err := provider.Generate(context.Background(), skills.GenerateRequest{
-		Messages: []skills.Message{{Role: "user", Content: "Hello"}},
+	_, err := provider.Generate(context.Background(), types.GenerateRequest{
+		Messages: []types.Message{{Role: "user", Content: "Hello"}},
 	})
 	if err == nil {
 		t.Error("Expected error for rate limit")
@@ -230,8 +230,8 @@ func TestAnthropicStreamingText(t *testing.T) {
 	provider := NewClaudeProvider(server.URL, "test-key", "claude-3-opus")
 	var sp StreamingModelProvider = provider
 
-	ch, err := sp.GenerateStream(context.Background(), skills.GenerateRequest{
-		Messages: []skills.Message{{Role: "user", Content: "Hello"}},
+	ch, err := sp.GenerateStream(context.Background(), types.GenerateRequest{
+		Messages: []types.Message{{Role: "user", Content: "Hello"}},
 	})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -239,7 +239,7 @@ func TestAnthropicStreamingText(t *testing.T) {
 
 	var textContent string
 	var gotFinishReason string
-	var gotUsage skills.TokenUsage
+	var gotUsage types.TokenUsage
 	for chunk := range ch {
 		if chunk.Error != nil {
 			t.Fatalf("Stream error: %v", chunk.Error)
@@ -295,14 +295,14 @@ func TestAnthropicStreamingToolCalls(t *testing.T) {
 	provider := NewClaudeProvider(server.URL, "key", "claude-3")
 	var sp StreamingModelProvider = provider
 
-	ch, err := sp.GenerateStream(context.Background(), skills.GenerateRequest{
-		Messages: []skills.Message{{Role: "user", Content: "Weather?"}},
+	ch, err := sp.GenerateStream(context.Background(), types.GenerateRequest{
+		Messages: []types.Message{{Role: "user", Content: "Weather?"}},
 	})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
 
-	var lastChunk skills.StreamChunk
+	var lastChunk types.StreamChunk
 	var textContent string
 	for chunk := range ch {
 		if chunk.Error != nil {
@@ -356,8 +356,8 @@ func TestAnthropicStreamingContextCancellation(t *testing.T) {
 	provider := NewClaudeProvider(server.URL, "key", "claude-3")
 	var sp StreamingModelProvider = provider
 
-	ch, _ := sp.GenerateStream(ctx, skills.GenerateRequest{
-		Messages: []skills.Message{{Role: "user", Content: "Hi"}},
+	ch, _ := sp.GenerateStream(ctx, types.GenerateRequest{
+		Messages: []types.Message{{Role: "user", Content: "Hi"}},
 	})
 
 	// Read one chunk to confirm streaming is working
@@ -390,8 +390,8 @@ func TestAnthropicStreamingServerErr(t *testing.T) {
 	provider := NewClaudeProvider(server.URL, "key", "claude-3")
 	var sp StreamingModelProvider = provider
 
-	_, err := sp.GenerateStream(context.Background(), skills.GenerateRequest{
-		Messages: []skills.Message{{Role: "user", Content: "Hi"}},
+	_, err := sp.GenerateStream(context.Background(), types.GenerateRequest{
+		Messages: []types.Message{{Role: "user", Content: "Hi"}},
 	})
 	if err == nil {
 		t.Error("Expected error for 500 response")
@@ -418,8 +418,8 @@ func TestAnthropicSystemMessageExtraction(t *testing.T) {
 	defer server.Close()
 
 	provider := NewClaudeProvider(server.URL, "key", "claude-3")
-	_, err := provider.Generate(context.Background(), skills.GenerateRequest{
-		Messages: []skills.Message{
+	_, err := provider.Generate(context.Background(), types.GenerateRequest{
+		Messages: []types.Message{
 			{Role: "system", Content: "System prompt A"},
 			{Role: "system", Content: "System prompt B"},
 			{Role: "user", Content: "Hello"},
@@ -455,13 +455,13 @@ func TestAnthropicToolDefinitionFormat(t *testing.T) {
 	defer server.Close()
 
 	provider := NewClaudeProvider(server.URL, "key", "claude-3")
-	_, err := provider.Generate(context.Background(), skills.GenerateRequest{
-		Messages: []skills.Message{{Role: "user", Content: "Test"}},
-		Tools: []skills.ToolDefinition{
+	_, err := provider.Generate(context.Background(), types.GenerateRequest{
+		Messages: []types.Message{{Role: "user", Content: "Test"}},
+		Tools: []types.ToolDefinition{
 			{
 				Name:        "search",
 				Description: "Search the web",
-				Parameters:  &skills.JSONSchema{Type: "object"},
+				Parameters:  &types.JSONSchema{Type: "object"},
 			},
 		},
 	})
@@ -493,7 +493,7 @@ func TestAnthropicCapabilitiesIncludeStreaming(t *testing.T) {
 
 	hasStreaming := false
 	for _, c := range caps {
-		if c == skills.CapStreaming {
+		if c == types.CapStreaming {
 			hasStreaming = true
 		}
 	}
@@ -531,9 +531,9 @@ func TestAnthropicStreamingToolChoicePropagation(t *testing.T) {
 	provider := NewClaudeProvider(server.URL, "key", "claude-3")
 	var sp StreamingModelProvider = provider
 
-	toolChoice := skills.ToolChoiceAuto
-	ch, err := sp.GenerateStream(context.Background(), skills.GenerateRequest{
-		Messages:   []skills.Message{{Role: "user", Content: "test"}},
+	toolChoice := types.ToolChoiceAuto
+	ch, err := sp.GenerateStream(context.Background(), types.GenerateRequest{
+		Messages:   []types.Message{{Role: "user", Content: "test"}},
 		ToolChoice: toolChoice,
 	})
 	if err != nil {
@@ -574,8 +574,8 @@ func TestAnthropicStreamingParallelToolCallsPropagation(t *testing.T) {
 	var sp StreamingModelProvider = provider
 
 	disabled := false
-	ch, err := sp.GenerateStream(context.Background(), skills.GenerateRequest{
-		Messages:         []skills.Message{{Role: "user", Content: "test"}},
+	ch, err := sp.GenerateStream(context.Background(), types.GenerateRequest{
+		Messages:         []types.Message{{Role: "user", Content: "test"}},
 		ParallelToolCalls: &disabled,
 	})
 	if err != nil {

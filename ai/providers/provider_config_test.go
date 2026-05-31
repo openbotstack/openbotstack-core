@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 func TestProviderConfigValidateValid(t *testing.T) {
@@ -103,10 +103,10 @@ func TestProviderConfigValidateDefaultCapabilities(t *testing.T) {
 		Model:   "test-model",
 	}
 	_ = cfg.Validate()
-	expected := []skills.CapabilityType{
-		skills.CapTextGeneration,
-		skills.CapToolCalling,
-		skills.CapStreaming,
+	expected := []types.CapabilityType{
+		types.CapTextGeneration,
+		types.CapToolCalling,
+		types.CapStreaming,
 	}
 	if len(cfg.Capabilities) != len(expected) {
 		t.Fatalf("Expected %d capabilities, got %d", len(expected), len(cfg.Capabilities))
@@ -119,14 +119,14 @@ func TestProviderConfigValidateDefaultCapabilities(t *testing.T) {
 }
 
 func TestProviderConfigValidateCustomCapabilities(t *testing.T) {
-	customCaps := []skills.CapabilityType{skills.CapTextGeneration}
+	customCaps := []types.CapabilityType{types.CapTextGeneration}
 	cfg := ProviderConfig{
 		BaseURL:      "http://localhost:8000/v1",
 		Model:        "test-model",
 		Capabilities: customCaps,
 	}
 	_ = cfg.Validate()
-	if len(cfg.Capabilities) != 1 || cfg.Capabilities[0] != skills.CapTextGeneration {
+	if len(cfg.Capabilities) != 1 || cfg.Capabilities[0] != types.CapTextGeneration {
 		t.Errorf("Expected custom capabilities to be preserved, got %v", cfg.Capabilities)
 	}
 }
@@ -190,7 +190,7 @@ func TestNewProviderFromConfigCapabilities(t *testing.T) {
 	caps := provider.Capabilities()
 	hasStreaming := false
 	for _, c := range caps {
-		if c == skills.CapStreaming {
+		if c == types.CapStreaming {
 			hasStreaming = true
 		}
 	}

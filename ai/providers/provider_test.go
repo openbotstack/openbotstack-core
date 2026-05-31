@@ -5,29 +5,29 @@ import (
 	"testing"
 
 	"github.com/openbotstack/openbotstack-core/ai"
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 // MockProvider is a test implementation of ModelProvider.
 type MockProvider struct {
 	id           string
-	capabilities []skills.CapabilityType
-	generateFunc func(ctx context.Context, req skills.GenerateRequest) (*skills.GenerateResponse, error)
+	capabilities []types.CapabilityType
+	generateFunc func(ctx context.Context, req types.GenerateRequest) (*types.GenerateResponse, error)
 }
 
 func (m *MockProvider) ID() string {
 	return m.id
 }
 
-func (m *MockProvider) Capabilities() []skills.CapabilityType {
+func (m *MockProvider) Capabilities() []types.CapabilityType {
 	return m.capabilities
 }
 
-func (m *MockProvider) Generate(ctx context.Context, req skills.GenerateRequest) (*skills.GenerateResponse, error) {
+func (m *MockProvider) Generate(ctx context.Context, req types.GenerateRequest) (*types.GenerateResponse, error) {
 	if m.generateFunc != nil {
 		return m.generateFunc(ctx, req)
 	}
-	return &skills.GenerateResponse{Content: "mock response"}, nil
+	return &types.GenerateResponse{Content: "mock response"}, nil
 }
 
 func (m *MockProvider) Embed(ctx context.Context, texts []string) ([][]float32, error) {
@@ -36,13 +36,13 @@ func (m *MockProvider) Embed(ctx context.Context, texts []string) ([][]float32, 
 
 func TestCapabilityTypes(t *testing.T) {
 	// Verify capability constants are defined
-	caps := []skills.CapabilityType{
-		skills.CapTextGeneration,
-		skills.CapToolCalling,
-		skills.CapJSONMode,
-		skills.CapEmbedding,
-		skills.CapVision,
-		skills.CapStreaming,
+	caps := []types.CapabilityType{
+		types.CapTextGeneration,
+		types.CapToolCalling,
+		types.CapJSONMode,
+		types.CapEmbedding,
+		types.CapVision,
+		types.CapStreaming,
 	}
 
 	for _, cap := range caps {
@@ -58,7 +58,7 @@ func TestModelProviderInterface(t *testing.T) {
 
 	provider := &MockProvider{
 		id:           "test/mock",
-		capabilities: []skills.CapabilityType{skills.CapTextGeneration},
+		capabilities: []types.CapabilityType{types.CapTextGeneration},
 	}
 
 	if provider.ID() != "test/mock" {
@@ -66,14 +66,14 @@ func TestModelProviderInterface(t *testing.T) {
 	}
 
 	caps := provider.Capabilities()
-	if len(caps) != 1 || caps[0] != skills.CapTextGeneration {
+	if len(caps) != 1 || caps[0] != types.CapTextGeneration {
 		t.Errorf("Unexpected capabilities: %v", caps)
 	}
 }
 
 func TestGenerateRequest(t *testing.T) {
-	req := skills.GenerateRequest{
-		Messages: []skills.Message{
+	req := types.GenerateRequest{
+		Messages: []types.Message{
 			{Role: "user", Content: "Hello"},
 		},
 		MaxTokens:   100,
@@ -86,10 +86,10 @@ func TestGenerateRequest(t *testing.T) {
 }
 
 func TestGenerateResponse(t *testing.T) {
-	resp := skills.GenerateResponse{
+	resp := types.GenerateResponse{
 		Content:      "Hello back",
 		FinishReason: "stop",
-		Usage: skills.TokenUsage{
+		Usage: types.TokenUsage{
 			PromptTokens:     10,
 			CompletionTokens: 5,
 			TotalTokens:      15,
@@ -102,11 +102,11 @@ func TestGenerateResponse(t *testing.T) {
 }
 
 func TestStreamChunk(t *testing.T) {
-	chunk := skills.StreamChunk{
+	chunk := types.StreamChunk{
 		Content:      "Hello",
-		ToolCalls:    []skills.ToolCall{{ID: "call_1", Name: "test_tool", Arguments: `{"key":"value"}`}},
+		ToolCalls:    []types.ToolCall{{ID: "call_1", Name: "test_tool", Arguments: `{"key":"value"}`}},
 		FinishReason: "stop",
-		Usage:        skills.TokenUsage{PromptTokens: 10, CompletionTokens: 5, TotalTokens: 15},
+		Usage:        types.TokenUsage{PromptTokens: 10, CompletionTokens: 5, TotalTokens: 15},
 	}
 	if chunk.Content != "Hello" {
 		t.Errorf("Expected Content 'Hello', got '%s'", chunk.Content)
@@ -126,7 +126,7 @@ func TestStreamChunk(t *testing.T) {
 }
 
 func TestStreamChunkError(t *testing.T) {
-	chunk := skills.StreamChunk{
+	chunk := types.StreamChunk{
 		Error: context.Canceled,
 	}
 	if chunk.Error == nil {
@@ -138,8 +138,8 @@ func TestStreamChunkError(t *testing.T) {
 }
 
 func TestCapStreaming(t *testing.T) {
-	if skills.CapStreaming != "streaming" {
-		t.Errorf("Expected 'streaming', got '%s'", skills.CapStreaming)
+	if types.CapStreaming != "streaming" {
+		t.Errorf("Expected 'streaming', got '%s'", types.CapStreaming)
 	}
 }
 
@@ -148,9 +148,9 @@ type MockStreamingProvider struct {
 	MockProvider
 }
 
-func (m *MockStreamingProvider) GenerateStream(ctx context.Context, req skills.GenerateRequest) (<-chan skills.StreamChunk, error) {
-	ch := make(chan skills.StreamChunk, 1)
-	ch <- skills.StreamChunk{Content: "mock stream", FinishReason: "stop"}
+func (m *MockStreamingProvider) GenerateStream(ctx context.Context, req types.GenerateRequest) (<-chan types.StreamChunk, error) {
+	ch := make(chan types.StreamChunk, 1)
+	ch <- types.StreamChunk{Content: "mock stream", FinishReason: "stop"}
 	close(ch)
 	return ch, nil
 }

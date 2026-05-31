@@ -4,7 +4,7 @@ import (
 	"github.com/openbotstack/openbotstack-core/ai"
 	"github.com/openbotstack/openbotstack-core/ai/providers"
 	"sync"
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 // DefaultRouter implements ModelRouter with capability-based routing.
@@ -34,7 +34,7 @@ func (r *DefaultRouter) Register(provider providers.ModelProvider) error {
 }
 
 // Route selects the best provider for the given requirements.
-func (r *DefaultRouter) Route(requirements []skills.CapabilityType, constraints skills.ModelConstraints) (providers.ModelProvider, error) {
+func (r *DefaultRouter) Route(requirements []types.CapabilityType, constraints types.ModelConstraints) (providers.ModelProvider, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
@@ -91,9 +91,9 @@ func (r *DefaultRouter) List() []string {
 }
 
 // hasAllCapabilities checks if provider supports all required capabilities.
-func hasAllCapabilities(provider providers.ModelProvider, requirements []skills.CapabilityType) bool {
+func hasAllCapabilities(provider providers.ModelProvider, requirements []types.CapabilityType) bool {
 	caps := provider.Capabilities()
-	capSet := make(map[skills.CapabilityType]bool)
+	capSet := make(map[types.CapabilityType]bool)
 	for _, c := range caps {
 		capSet[c] = true
 	}

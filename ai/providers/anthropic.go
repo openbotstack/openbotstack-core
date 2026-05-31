@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/openbotstack/openbotstack-core/ai"
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 // ----- Anthropic Messages API request/response types -----
@@ -40,7 +40,7 @@ type anthropicMessage struct {
 type anthropicToolDefinition struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description,omitempty"`
-	InputSchema *skills.JSONSchema `json:"input_schema,omitempty"`
+	InputSchema *types.JSONSchema `json:"input_schema,omitempty"`
 }
 
 // anthropicMessagesResponse is the response from POST /v1/messages.
@@ -81,9 +81,9 @@ func anthropicMessagesGenerate(
 	ctx context.Context,
 	client *http.Client,
 	baseURL, apiKey, model string,
-	req skills.GenerateRequest,
+	req types.GenerateRequest,
 	maxRetries int,
-) (*skills.GenerateResponse, error) {
+) (*types.GenerateResponse, error) {
 	// Build Anthropic-format request
 	body := anthropicMessagesRequest{
 		Model: model,
@@ -188,8 +188,8 @@ func anthropicMessagesGenerate(
 			}
 
 			latency := time.Since(start)
-			result := &skills.GenerateResponse{
-				Usage: skills.TokenUsage{
+			result := &types.GenerateResponse{
+				Usage: types.TokenUsage{
 					PromptTokens:     apiResp.Usage.InputTokens,
 					CompletionTokens: apiResp.Usage.OutputTokens,
 					TotalTokens:      apiResp.Usage.InputTokens + apiResp.Usage.OutputTokens,
@@ -204,7 +204,7 @@ func anthropicMessagesGenerate(
 				case "text":
 					result.Content += block.Text
 				case "tool_use":
-					result.ToolCalls = append(result.ToolCalls, skills.ToolCall{
+					result.ToolCalls = append(result.ToolCalls, types.ToolCall{
 						ID:        block.ID,
 						Name:      block.Name,
 						Arguments: string(block.Input),

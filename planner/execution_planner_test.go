@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/openbotstack/openbotstack-core/ai/providers"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 	"github.com/openbotstack/openbotstack-core/assistant"
 	"github.com/openbotstack/openbotstack-core/control/skills"
 	"github.com/openbotstack/openbotstack-core/execution"
@@ -600,14 +601,14 @@ func TestParseResponse_PlainJSONWithReasoningField(t *testing.T) {
 // mockProvider implements providers.ModelProvider
 type mockProvider struct {
 	id           string
-	capabilities []skills.CapabilityType
-	response     *skills.GenerateResponse
+	capabilities []types.CapabilityType
+	response     *types.GenerateResponse
 	err          error
 }
 
 func (m *mockProvider) ID() string                            { return m.id }
-func (m *mockProvider) Capabilities() []skills.CapabilityType { return m.capabilities }
-func (m *mockProvider) Generate(_ context.Context, _ skills.GenerateRequest) (*skills.GenerateResponse, error) {
+func (m *mockProvider) Capabilities() []types.CapabilityType { return m.capabilities }
+func (m *mockProvider) Generate(_ context.Context, _ types.GenerateRequest) (*types.GenerateResponse, error) {
 	return m.response, m.err
 }
 func (m *mockProvider) Embed(_ context.Context, _ []string) ([][]float32, error) {
@@ -620,7 +621,7 @@ type mockRouter struct {
 	err      error
 }
 
-func (m *mockRouter) Route(_ []skills.CapabilityType, _ skills.ModelConstraints) (providers.ModelProvider, error) {
+func (m *mockRouter) Route(_ []types.CapabilityType, _ types.ModelConstraints) (providers.ModelProvider, error) {
 	return m.provider, m.err
 }
 
@@ -681,7 +682,7 @@ func TestPlan_LLMFailure(t *testing.T) {
 func TestPlan_InvalidLLMResponse(t *testing.T) {
 	router := &mockRouter{
 		provider: &mockProvider{
-			response: &skills.GenerateResponse{
+			response: &types.GenerateResponse{
 				Content: "this is not valid JSON",
 			},
 		},
@@ -708,7 +709,7 @@ func TestPlan_ValidationFailure(t *testing.T) {
 	planJSON := `{"assistant_id":"a1","steps":[{"type":"skill","name":"","arguments":{}}]}`
 	router := &mockRouter{
 		provider: &mockProvider{
-			response: &skills.GenerateResponse{
+			response: &types.GenerateResponse{
 				Content: planJSON,
 			},
 		},
@@ -732,7 +733,7 @@ func TestPlan_Success(t *testing.T) {
 	planJSON := `{"assistant_id":"","steps":[{"type":"skill","name":"summarize","arguments":{"text":"hello"}}]}`
 	router := &mockRouter{
 		provider: &mockProvider{
-			response: &skills.GenerateResponse{
+			response: &types.GenerateResponse{
 				Content: planJSON,
 			},
 		},
@@ -759,7 +760,7 @@ func TestPlan_AssistantIDPreservedFromResponse(t *testing.T) {
 	planJSON := `{"assistant_id":"response-assistant","steps":[{"type":"skill","name":"s1","arguments":{}}]}`
 	router := &mockRouter{
 		provider: &mockProvider{
-			response: &skills.GenerateResponse{
+			response: &types.GenerateResponse{
 				Content: planJSON,
 			},
 		},
@@ -784,7 +785,7 @@ func TestPlan_SuccessWithMarkdownResponse(t *testing.T) {
 	planJSON := "```json\n{\"assistant_id\":\"a1\",\"steps\":[{\"type\":\"skill\",\"name\":\"s1\",\"arguments\":{}}]}\n```"
 	router := &mockRouter{
 		provider: &mockProvider{
-			response: &skills.GenerateResponse{
+			response: &types.GenerateResponse{
 				Content: planJSON,
 			},
 		},
@@ -819,7 +820,7 @@ func TestPlan_ValidationFailsTooManySteps(t *testing.T) {
 
 	router := &mockRouter{
 		provider: &mockProvider{
-			response: &skills.GenerateResponse{
+			response: &types.GenerateResponse{
 				Content: planJSON,
 			},
 		},

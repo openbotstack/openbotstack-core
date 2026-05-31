@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"regexp"
 
-	csSkills "github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 // ErrSchemaValidation indicates input failed JSON Schema validation.
@@ -23,7 +23,7 @@ func (e *ValidationError) Error() string {
 
 // ValidateInput validates raw JSON input against a JSONSchema.
 // Returns nil if schema is nil (no schema = no validation required).
-func ValidateInput(input []byte, schema *csSkills.JSONSchema) error {
+func ValidateInput(input []byte, schema *types.JSONSchema) error {
 	if schema == nil {
 		return nil
 	}
@@ -38,7 +38,7 @@ func ValidateInput(input []byte, schema *csSkills.JSONSchema) error {
 
 // ValidateInputStrict validates with strict mode: rejects unknown properties,
 // enforces all types exactly, and requires all schema constraints.
-func ValidateInputStrict(input []byte, schema *csSkills.JSONSchema) error {
+func ValidateInputStrict(input []byte, schema *types.JSONSchema) error {
 	if schema == nil {
 		return nil
 	}
@@ -51,7 +51,7 @@ func ValidateInputStrict(input []byte, schema *csSkills.JSONSchema) error {
 	return validateValueStrict(data, schema, "")
 }
 
-func validateValue(data interface{}, schema *csSkills.JSONSchema, path string) error {
+func validateValue(data interface{}, schema *types.JSONSchema, path string) error {
 	if schema == nil {
 		return nil
 	}
@@ -113,7 +113,7 @@ func validateValue(data interface{}, schema *csSkills.JSONSchema, path string) e
 	return nil
 }
 
-func validateValueStrict(data interface{}, schema *csSkills.JSONSchema, path string) error {
+func validateValueStrict(data interface{}, schema *types.JSONSchema, path string) error {
 	if schema == nil {
 		return nil
 	}
@@ -221,7 +221,7 @@ func jsonEqual(a, b interface{}) bool {
 	return string(aj) == string(bj)
 }
 
-func validateString(data interface{}, schema *csSkills.JSONSchema, path string) error {
+func validateString(data interface{}, schema *types.JSONSchema, path string) error {
 	s, ok := data.(string)
 	if !ok {
 		return nil // type mismatch already caught
@@ -245,7 +245,7 @@ func validateString(data interface{}, schema *csSkills.JSONSchema, path string) 
 	return nil
 }
 
-func validateNumber(data interface{}, schema *csSkills.JSONSchema, path string) error {
+func validateNumber(data interface{}, schema *types.JSONSchema, path string) error {
 	f, ok := data.(float64)
 	if !ok {
 		return nil // type mismatch already caught
@@ -260,7 +260,7 @@ func validateNumber(data interface{}, schema *csSkills.JSONSchema, path string) 
 	return nil
 }
 
-func validateArray(data interface{}, schema *csSkills.JSONSchema, path string) error {
+func validateArray(data interface{}, schema *types.JSONSchema, path string) error {
 	arr, ok := data.([]interface{})
 	if !ok {
 		return nil // type mismatch already caught
@@ -289,7 +289,7 @@ func validateArray(data interface{}, schema *csSkills.JSONSchema, path string) e
 	return nil
 }
 
-func validateArrayStrict(data interface{}, schema *csSkills.JSONSchema, path string) error {
+func validateArrayStrict(data interface{}, schema *types.JSONSchema, path string) error {
 	arr, ok := data.([]interface{})
 	if !ok {
 		return nil
@@ -318,7 +318,7 @@ func validateArrayStrict(data interface{}, schema *csSkills.JSONSchema, path str
 	return nil
 }
 
-func validateObject(data interface{}, schema *csSkills.JSONSchema, path string, strict bool) error {
+func validateObject(data interface{}, schema *types.JSONSchema, path string, strict bool) error {
 	obj, ok := data.(map[string]interface{})
 	if !ok {
 		return nil // type mismatch already caught by validateType
@@ -367,7 +367,7 @@ func validateObject(data interface{}, schema *csSkills.JSONSchema, path string, 
 	return nil
 }
 
-func validateComposition(data interface{}, schema *csSkills.JSONSchema, path string, strict bool) error {
+func validateComposition(data interface{}, schema *types.JSONSchema, path string, strict bool) error {
 	validate := validateValue
 	if strict {
 		validate = validateValueStrict
@@ -427,7 +427,7 @@ func validateConst(data interface{}, constVal interface{}, path string) error {
 // validatePrefixItems validates tuple-style array items (JSON Schema 2020-12).
 // Each prefixItem schema applies to the array element at the corresponding index.
 // Fewer array elements than prefixItems is acceptable (prefixItems don't imply required).
-func validatePrefixItems(arr []interface{}, schema *csSkills.JSONSchema, path string, strict bool) error {
+func validatePrefixItems(arr []interface{}, schema *types.JSONSchema, path string, strict bool) error {
 	validate := validateValue
 	if strict {
 		validate = validateValueStrict
@@ -446,7 +446,7 @@ func validatePrefixItems(arr []interface{}, schema *csSkills.JSONSchema, path st
 
 // validateConditional applies if/then/else conditional validation (JSON Schema 2020-12).
 // If the "if" schema matches the data, "then" is applied; otherwise "else" is applied.
-func validateConditional(data interface{}, schema *csSkills.JSONSchema, path string, strict bool) error {
+func validateConditional(data interface{}, schema *types.JSONSchema, path string, strict bool) error {
 	validate := validateValue
 	if strict {
 		validate = validateValueStrict

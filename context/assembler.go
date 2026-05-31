@@ -12,9 +12,9 @@
 package context
 
 import (
-	"github.com/openbotstack/openbotstack-core/control/skills"
 	"context"
 
+	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
 	"github.com/openbotstack/openbotstack-core/memory/abstraction"
 )
 
@@ -24,13 +24,13 @@ type AssembledContext struct {
 	SystemPrompt string
 
 	// Messages is the conversation history with injected memory.
-	Messages []skills.Message
+	Messages []aitypes.Message
 
 	// AvailableTools is the list of tools the model can call.
-	AvailableTools []skills.ToolDefinition
+	AvailableTools []aitypes.ToolDefinition
 
 	// Constraints limits applied to this request.
-	Constraints skills.ModelConstraints
+	Constraints aitypes.ModelConstraints
 
 	// RelevantMemories are the memories retrieved for this context.
 	RelevantMemories []abstraction.MemoryEntry
@@ -91,6 +91,6 @@ type ContextAssembler interface {
 		ctx context.Context,
 		assistant AssistantContext,
 		request UserRequest,
-		conversationHistory []skills.Message,
+		conversationHistory []aitypes.Message,
 	) (*AssembledContext, error)
 }

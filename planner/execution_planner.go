@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/openbotstack/openbotstack-core/ai/providers"
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 	"github.com/openbotstack/openbotstack-core/execution"
 )
 
@@ -58,8 +58,8 @@ func (p *LLMPlanner) Plan(ctx context.Context, pCtx *PlannerContext) (*execution
 
 	prompt := p.buildPrompt(pCtx)
 
-	mReq := skills.GenerateRequest{
-		Messages: []skills.Message{
+	mReq := types.GenerateRequest{
+		Messages: []types.Message{
 			{Role: "system", Content: pCtx.Soul.SystemPrompt},
 			{Role: "user", Content: prompt},
 		},
@@ -67,8 +67,8 @@ func (p *LLMPlanner) Plan(ctx context.Context, pCtx *PlannerContext) (*execution
 	}
 
 	provider, err := p.router.Route(
-		[]skills.CapabilityType{skills.CapTextGeneration},
-		skills.ModelConstraints{},
+		[]types.CapabilityType{types.CapTextGeneration},
+		types.ModelConstraints{},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("%w: routing failed: %v", ErrPlanningFailed, err)

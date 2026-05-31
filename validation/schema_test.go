@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	csSkills "github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 func TestValidateInput_NilSchema(t *testing.T) {
@@ -17,7 +17,7 @@ func TestValidateInput_NilSchema(t *testing.T) {
 }
 
 func TestValidateInput_InvalidJSON(t *testing.T) {
-	schema := &csSkills.JSONSchema{Type: "object"}
+	schema := &types.JSONSchema{Type: "object"}
 	err := ValidateInput([]byte(`not json`), schema)
 	if err == nil {
 		t.Error("invalid JSON should fail")
@@ -25,7 +25,7 @@ func TestValidateInput_InvalidJSON(t *testing.T) {
 }
 
 func TestValidateInput_RequiredFieldMissing(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type:     "object",
 		Required: []string{"name", "age"},
 	}
@@ -43,7 +43,7 @@ func TestValidateInput_RequiredFieldMissing(t *testing.T) {
 }
 
 func TestValidateInput_WrongType(t *testing.T) {
-	schema := &csSkills.JSONSchema{Type: "object"}
+	schema := &types.JSONSchema{Type: "object"}
 	err := ValidateInput([]byte(`"string"`), schema)
 	if err == nil {
 		t.Error("string given where object expected should fail")
@@ -51,10 +51,10 @@ func TestValidateInput_WrongType(t *testing.T) {
 }
 
 func TestValidateInput_ValidObject(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type:     "object",
 		Required: []string{"text"},
-		Properties: map[string]*csSkills.JSONSchema{
+		Properties: map[string]*types.JSONSchema{
 			"text": {Type: "string"},
 		},
 	}
@@ -65,7 +65,7 @@ func TestValidateInput_ValidObject(t *testing.T) {
 }
 
 func TestValidateInput_EmptyInputRequiredFields(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type:     "object",
 		Required: []string{"text"},
 	}
@@ -76,13 +76,13 @@ func TestValidateInput_EmptyInputRequiredFields(t *testing.T) {
 }
 
 func TestValidateInput_NestedObjectValidation(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "object",
-		Properties: map[string]*csSkills.JSONSchema{
+		Properties: map[string]*types.JSONSchema{
 			"address": {
 				Type:     "object",
 				Required: []string{"city"},
-				Properties: map[string]*csSkills.JSONSchema{
+				Properties: map[string]*types.JSONSchema{
 					"city": {Type: "string"},
 				},
 			},
@@ -102,13 +102,13 @@ func TestValidateInput_NestedObjectValidation(t *testing.T) {
 }
 
 func TestValidateInput_NestedObjectValid(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "object",
-		Properties: map[string]*csSkills.JSONSchema{
+		Properties: map[string]*types.JSONSchema{
 			"address": {
 				Type:     "object",
 				Required: []string{"city"},
-				Properties: map[string]*csSkills.JSONSchema{
+				Properties: map[string]*types.JSONSchema{
 					"city": {Type: "string"},
 				},
 			},
@@ -121,7 +121,7 @@ func TestValidateInput_NestedObjectValid(t *testing.T) {
 }
 
 func TestValidateInput_ArrayType(t *testing.T) {
-	schema := &csSkills.JSONSchema{Type: "array"}
+	schema := &types.JSONSchema{Type: "array"}
 	err := ValidateInput([]byte(`[1,2,3]`), schema)
 	if err != nil {
 		t.Errorf("valid array should pass, got: %v", err)
@@ -134,7 +134,7 @@ func TestValidateInput_ArrayType(t *testing.T) {
 }
 
 func TestValidateInput_BooleanType(t *testing.T) {
-	schema := &csSkills.JSONSchema{Type: "boolean"}
+	schema := &types.JSONSchema{Type: "boolean"}
 	err := ValidateInput([]byte(`true`), schema)
 	if err != nil {
 		t.Errorf("valid boolean should pass, got: %v", err)
@@ -147,7 +147,7 @@ func TestValidateInput_BooleanType(t *testing.T) {
 }
 
 func TestValidateInput_NumberType(t *testing.T) {
-	schema := &csSkills.JSONSchema{Type: "number"}
+	schema := &types.JSONSchema{Type: "number"}
 	err := ValidateInput([]byte(`42.5`), schema)
 	if err != nil {
 		t.Errorf("valid number should pass, got: %v", err)
@@ -160,7 +160,7 @@ func TestValidateInput_NumberType(t *testing.T) {
 }
 
 func TestValidateInput_StringType(t *testing.T) {
-	schema := &csSkills.JSONSchema{Type: "string"}
+	schema := &types.JSONSchema{Type: "string"}
 	err := ValidateInput([]byte(`"hello"`), schema)
 	if err != nil {
 		t.Errorf("valid string should pass, got: %v", err)
@@ -174,7 +174,7 @@ func TestValidateInput_StringType(t *testing.T) {
 
 func TestValidateInput_NilSchemaProperties(t *testing.T) {
 	// Schema with type=object but no properties defined — should pass any object
-	schema := &csSkills.JSONSchema{Type: "object"}
+	schema := &types.JSONSchema{Type: "object"}
 	err := ValidateInput([]byte(`{"anything":"goes"}`), schema)
 	if err != nil {
 		t.Errorf("object with nil properties should pass, got: %v", err)
@@ -182,9 +182,9 @@ func TestValidateInput_NilSchemaProperties(t *testing.T) {
 }
 
 func TestValidateInput_PropertyWrongType(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "object",
-		Properties: map[string]*csSkills.JSONSchema{
+		Properties: map[string]*types.JSONSchema{
 			"count": {Type: "number"},
 		},
 	}
@@ -202,7 +202,7 @@ func TestValidateInput_PropertyWrongType(t *testing.T) {
 }
 
 func TestValidateInput_IntegerType(t *testing.T) {
-	schema := &csSkills.JSONSchema{Type: "integer"}
+	schema := &types.JSONSchema{Type: "integer"}
 
 	t.Run("valid integer", func(t *testing.T) {
 		err := ValidateInput([]byte(`42`), schema)
@@ -220,7 +220,7 @@ func TestValidateInput_IntegerType(t *testing.T) {
 }
 
 func TestValidateInput_UnsupportedSchemaType(t *testing.T) {
-	schema := &csSkills.JSONSchema{Type: "xml"}
+	schema := &types.JSONSchema{Type: "xml"}
 	err := ValidateInput([]byte(`"data"`), schema)
 	if err == nil {
 		t.Error("unsupported schema type should fail")
@@ -234,7 +234,7 @@ func floatPtr(v float64) *float64 { return &v }
 func boolPtr(v bool) *bool        { return &v }
 
 func TestValidateInput_Enum(t *testing.T) {
-	schema := &csSkills.JSONSchema{Type: "string", Enum: []any{"red", "green", "blue"}}
+	schema := &types.JSONSchema{Type: "string", Enum: []any{"red", "green", "blue"}}
 	if err := ValidateInput([]byte(`"red"`), schema); err != nil {
 		t.Errorf("valid enum: %v", err)
 	}
@@ -244,7 +244,7 @@ func TestValidateInput_Enum(t *testing.T) {
 }
 
 func TestValidateInput_MinMaxStringLength(t *testing.T) {
-	schema := &csSkills.JSONSchema{Type: "string", MinLength: intPtr(2), MaxLength: intPtr(5)}
+	schema := &types.JSONSchema{Type: "string", MinLength: intPtr(2), MaxLength: intPtr(5)}
 	if err := ValidateInput([]byte(`"a"`), schema); err == nil {
 		t.Error("too short should fail")
 	}
@@ -255,13 +255,13 @@ func TestValidateInput_MinMaxStringLength(t *testing.T) {
 		t.Errorf("valid length: %v", err)
 	}
 	t.Run("exact minLength passes", func(t *testing.T) {
-		s := &csSkills.JSONSchema{Type: "string", MinLength: intPtr(2)}
+		s := &types.JSONSchema{Type: "string", MinLength: intPtr(2)}
 		if err := ValidateInput([]byte(`"ab"`), s); err != nil {
 			t.Errorf("string at exact minLength should pass: %v", err)
 		}
 	})
 	t.Run("exact maxLength passes", func(t *testing.T) {
-		s := &csSkills.JSONSchema{Type: "string", MaxLength: intPtr(5)}
+		s := &types.JSONSchema{Type: "string", MaxLength: intPtr(5)}
 		if err := ValidateInput([]byte(`"abcde"`), s); err != nil {
 			t.Errorf("string at exact maxLength should pass: %v", err)
 		}
@@ -269,7 +269,7 @@ func TestValidateInput_MinMaxStringLength(t *testing.T) {
 }
 
 func TestValidateInput_MinMaxNumber(t *testing.T) {
-	schema := &csSkills.JSONSchema{Type: "number", Minimum: floatPtr(0), Maximum: floatPtr(100)}
+	schema := &types.JSONSchema{Type: "number", Minimum: floatPtr(0), Maximum: floatPtr(100)}
 	if err := ValidateInput([]byte(`-1`), schema); err == nil {
 		t.Error("below minimum should fail")
 	}
@@ -280,25 +280,25 @@ func TestValidateInput_MinMaxNumber(t *testing.T) {
 		t.Errorf("in range: %v", err)
 	}
 	t.Run("exact minimum passes", func(t *testing.T) {
-		s := &csSkills.JSONSchema{Type: "number", Minimum: floatPtr(0)}
+		s := &types.JSONSchema{Type: "number", Minimum: floatPtr(0)}
 		if err := ValidateInput([]byte(`0`), s); err != nil {
 			t.Errorf("value equal to minimum should pass: %v", err)
 		}
 	})
 	t.Run("exact maximum passes", func(t *testing.T) {
-		s := &csSkills.JSONSchema{Type: "number", Maximum: floatPtr(100)}
+		s := &types.JSONSchema{Type: "number", Maximum: floatPtr(100)}
 		if err := ValidateInput([]byte(`100`), s); err != nil {
 			t.Errorf("value equal to maximum should pass: %v", err)
 		}
 	})
 	t.Run("only minimum set", func(t *testing.T) {
-		s := &csSkills.JSONSchema{Type: "number", Minimum: floatPtr(0)}
+		s := &types.JSONSchema{Type: "number", Minimum: floatPtr(0)}
 		if err := ValidateInput([]byte(`999`), s); err != nil {
 			t.Errorf("value above only-minimum should pass: %v", err)
 		}
 	})
 	t.Run("only maximum set", func(t *testing.T) {
-		s := &csSkills.JSONSchema{Type: "number", Maximum: floatPtr(100)}
+		s := &types.JSONSchema{Type: "number", Maximum: floatPtr(100)}
 		if err := ValidateInput([]byte(`-999`), s); err != nil {
 			t.Errorf("value below only-maximum should pass: %v", err)
 		}
@@ -306,7 +306,7 @@ func TestValidateInput_MinMaxNumber(t *testing.T) {
 }
 
 func TestValidateInput_Pattern(t *testing.T) {
-	schema := &csSkills.JSONSchema{Type: "string", Pattern: `^[a-z]+$`}
+	schema := &types.JSONSchema{Type: "string", Pattern: `^[a-z]+$`}
 	if err := ValidateInput([]byte(`"hello"`), schema); err != nil {
 		t.Errorf("matching: %v", err)
 	}
@@ -316,7 +316,7 @@ func TestValidateInput_Pattern(t *testing.T) {
 }
 
 func TestValidateInput_ArrayItems(t *testing.T) {
-	schema := &csSkills.JSONSchema{Type: "array", Items: &csSkills.JSONSchema{Type: "number"}}
+	schema := &types.JSONSchema{Type: "array", Items: &types.JSONSchema{Type: "number"}}
 	if err := ValidateInput([]byte(`[1,2,3]`), schema); err != nil {
 		t.Errorf("valid items: %v", err)
 	}
@@ -326,9 +326,9 @@ func TestValidateInput_ArrayItems(t *testing.T) {
 }
 
 func TestValidateInput_AdditionalPropertiesFalse(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "object", AdditionalProperties: boolPtr(false),
-		Properties: map[string]*csSkills.JSONSchema{"name": {Type: "string"}},
+		Properties: map[string]*types.JSONSchema{"name": {Type: "string"}},
 	}
 	if err := ValidateInput([]byte(`{"name":"test"}`), schema); err != nil {
 		t.Errorf("known only: %v", err)
@@ -339,7 +339,7 @@ func TestValidateInput_AdditionalPropertiesFalse(t *testing.T) {
 }
 
 func TestValidateInput_AnyOf(t *testing.T) {
-	schema := &csSkills.JSONSchema{AnyOf: []*csSkills.JSONSchema{{Type: "string"}, {Type: "number"}}}
+	schema := &types.JSONSchema{AnyOf: []*types.JSONSchema{{Type: "string"}, {Type: "number"}}}
 	if err := ValidateInput([]byte(`"hi"`), schema); err != nil {
 		t.Errorf("string: %v", err)
 	}
@@ -352,9 +352,9 @@ func TestValidateInput_AnyOf(t *testing.T) {
 }
 
 func TestValidateInput_AllOf(t *testing.T) {
-	schema := &csSkills.JSONSchema{AllOf: []*csSkills.JSONSchema{
-		{Type: "object", Properties: map[string]*csSkills.JSONSchema{"a": {Type: "string"}}, Required: []string{"a"}},
-		{Type: "object", Properties: map[string]*csSkills.JSONSchema{"b": {Type: "number"}}, Required: []string{"b"}},
+	schema := &types.JSONSchema{AllOf: []*types.JSONSchema{
+		{Type: "object", Properties: map[string]*types.JSONSchema{"a": {Type: "string"}}, Required: []string{"a"}},
+		{Type: "object", Properties: map[string]*types.JSONSchema{"b": {Type: "number"}}, Required: []string{"b"}},
 	}}
 	if err := ValidateInput([]byte(`{"a":"x","b":1}`), schema); err != nil {
 		t.Errorf("all match: %v", err)
@@ -365,9 +365,9 @@ func TestValidateInput_AllOf(t *testing.T) {
 }
 
 func TestValidateInputStrict_RejectsUnknown(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "object",
-		Properties: map[string]*csSkills.JSONSchema{"name": {Type: "string"}},
+		Properties: map[string]*types.JSONSchema{"name": {Type: "string"}},
 		Required: []string{"name"},
 	}
 	if err := ValidateInputStrict([]byte(`{"name":"ok"}`), schema); err != nil {
@@ -382,13 +382,13 @@ func TestValidateInputStrict_RejectsUnknown(t *testing.T) {
 }
 
 func TestValidateInput_ComplexSchema(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "object", Description: "Person",
-		Properties: map[string]*csSkills.JSONSchema{
+		Properties: map[string]*types.JSONSchema{
 			"name":  {Type: "string", MinLength: intPtr(1), MaxLength: intPtr(100)},
 			"age":   {Type: "integer", Minimum: floatPtr(0), Maximum: floatPtr(150)},
 			"role":  {Type: "string", Enum: []any{"admin", "member"}},
-			"tags":  {Type: "array", Items: &csSkills.JSONSchema{Type: "string"}},
+			"tags":  {Type: "array", Items: &types.JSONSchema{Type: "string"}},
 		},
 		Required:             []string{"name", "age"},
 		AdditionalProperties: boolPtr(false),
@@ -398,7 +398,7 @@ func TestValidateInput_ComplexSchema(t *testing.T) {
 	}
 }
 func TestValidateInput_OneOf(t *testing.T) {
-	schema := &csSkills.JSONSchema{OneOf: []*csSkills.JSONSchema{
+	schema := &types.JSONSchema{OneOf: []*types.JSONSchema{
 		{Type: "string"},
 		{Type: "number"},
 	}}
@@ -412,7 +412,7 @@ func TestValidateInput_OneOf(t *testing.T) {
 		t.Error("bool should fail oneOf(string,number)")
 	}
 	// Matches both -> should fail (must match exactly 1)
-	dualSchema := &csSkills.JSONSchema{OneOf: []*csSkills.JSONSchema{
+	dualSchema := &types.JSONSchema{OneOf: []*types.JSONSchema{
 		{Type: "number", Minimum: floatPtr(0)},
 		{Type: "number", Minimum: floatPtr(10)},
 	}}
@@ -422,24 +422,24 @@ func TestValidateInput_OneOf(t *testing.T) {
 }
 
 func TestValidateInput_EmptyEnum(t *testing.T) {
-	schema := &csSkills.JSONSchema{Type: "string", Enum: []any{}}
+	schema := &types.JSONSchema{Type: "string", Enum: []any{}}
 	if err := ValidateInput([]byte(`"anything"`), schema); err != nil {
 		t.Errorf("empty enum should be treated as no constraint: %v", err)
 	}
 }
 
 func TestValidateInput_NilItems(t *testing.T) {
-	schema := &csSkills.JSONSchema{Type: "array"}
+	schema := &types.JSONSchema{Type: "array"}
 	if err := ValidateInput([]byte(`[1,"mixed",true]`), schema); err != nil {
 		t.Errorf("array with nil items should accept anything: %v", err)
 	}
 }
 
 func TestValidateInput_AdditionalPropertiesTrue(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "object",
 		AdditionalProperties: boolPtr(true),
-		Properties: map[string]*csSkills.JSONSchema{"name": {Type: "string"}},
+		Properties: map[string]*types.JSONSchema{"name": {Type: "string"}},
 	}
 	if err := ValidateInput([]byte(`{"name":"test","extra":1}`), schema); err != nil {
 		t.Errorf("additionalProperties=true should allow unknown: %v", err)
@@ -447,21 +447,21 @@ func TestValidateInput_AdditionalPropertiesTrue(t *testing.T) {
 }
 
 func TestValidateInputStrict_NoProperties(t *testing.T) {
-	schema := &csSkills.JSONSchema{Type: "object"}
+	schema := &types.JSONSchema{Type: "object"}
 	if err := ValidateInputStrict([]byte(`{"anything":"goes"}`), schema); err != nil {
 		t.Errorf("strict with no properties should allow all keys: %v", err)
 	}
 }
 
 func TestValidateInput_InvalidPattern(t *testing.T) {
-	schema := &csSkills.JSONSchema{Type: "string", Pattern: "[invalid"}
+	schema := &types.JSONSchema{Type: "string", Pattern: "[invalid"}
 	if err := ValidateInput([]byte(`"test"`), schema); err == nil {
 		t.Error("invalid regex pattern should fail")
 	}
 }
 
 func TestValidateInput_IntegerWithRange(t *testing.T) {
-	schema := &csSkills.JSONSchema{Type: "integer", Minimum: floatPtr(1), Maximum: floatPtr(10)}
+	schema := &types.JSONSchema{Type: "integer", Minimum: floatPtr(1), Maximum: floatPtr(10)}
 	if err := ValidateInput([]byte(`5`), schema); err != nil {
 		t.Errorf("integer in range should pass: %v", err)
 	}
@@ -473,8 +473,8 @@ func TestValidateInput_IntegerWithRange(t *testing.T) {
 	}
 }
 func TestValidateInput_EmptyTypeWithProperties(t *testing.T) {
-	schema := &csSkills.JSONSchema{
-		Properties: map[string]*csSkills.JSONSchema{
+	schema := &types.JSONSchema{
+		Properties: map[string]*types.JSONSchema{
 			"name": {Type: "string"},
 		},
 		Required: []string{"name"},
@@ -490,9 +490,9 @@ func TestValidateInput_EmptyTypeWithProperties(t *testing.T) {
 // --- G6: concurrent validation safety ---
 
 func TestValidateInput_ConcurrentSafety(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "object",
-		Properties: map[string]*csSkills.JSONSchema{
+		Properties: map[string]*types.JSONSchema{
 			"name":  {Type: "string"},
 			"email": {Type: "string", Pattern: "^[^@]+@[^@]+$"},
 		},
@@ -523,11 +523,11 @@ func TestValidateInput_ConcurrentSafety(t *testing.T) {
 
 func TestValidateInputStrict_WithComposition(t *testing.T) {
 	t.Run("anyOf strict rejects unknown in sub-schema", func(t *testing.T) {
-		schema := &csSkills.JSONSchema{
-			AnyOf: []*csSkills.JSONSchema{
+		schema := &types.JSONSchema{
+			AnyOf: []*types.JSONSchema{
 				{
 					Type: "object",
-					Properties: map[string]*csSkills.JSONSchema{
+					Properties: map[string]*types.JSONSchema{
 						"name": {Type: "string"},
 					},
 				},
@@ -539,11 +539,11 @@ func TestValidateInputStrict_WithComposition(t *testing.T) {
 	})
 
 	t.Run("anyOf non-strict allows unknown in sub-schema", func(t *testing.T) {
-		schema := &csSkills.JSONSchema{
-			AnyOf: []*csSkills.JSONSchema{
+		schema := &types.JSONSchema{
+			AnyOf: []*types.JSONSchema{
 				{
 					Type: "object",
-					Properties: map[string]*csSkills.JSONSchema{
+					Properties: map[string]*types.JSONSchema{
 						"name": {Type: "string"},
 					},
 				},
@@ -555,11 +555,11 @@ func TestValidateInputStrict_WithComposition(t *testing.T) {
 	})
 
 	t.Run("allOf strict: each sub-schema independently rejects unknown", func(t *testing.T) {
-		schema := &csSkills.JSONSchema{
-			AllOf: []*csSkills.JSONSchema{
+		schema := &types.JSONSchema{
+			AllOf: []*types.JSONSchema{
 				{
 					Type: "object",
-					Properties: map[string]*csSkills.JSONSchema{
+					Properties: map[string]*types.JSONSchema{
 						"a": {Type: "string"},
 						"b": {Type: "integer"},
 					},
@@ -579,21 +579,21 @@ func TestValidateInputStrict_WithComposition(t *testing.T) {
 // --- JSON Schema 2020-12: const tests ---
 
 func TestValidateInput_Const_ValidValue(t *testing.T) {
-	schema := &csSkills.JSONSchema{Const: &csSkills.ConstValue{Val: "hello"}}
+	schema := &types.JSONSchema{Const: &types.ConstValue{Val: "hello"}}
 	if err := ValidateInput([]byte(`"hello"`), schema); err != nil {
 		t.Errorf("const match should pass: %v", err)
 	}
 }
 
 func TestValidateInput_Const_InvalidValue(t *testing.T) {
-	schema := &csSkills.JSONSchema{Const: &csSkills.ConstValue{Val: "hello"}}
+	schema := &types.JSONSchema{Const: &types.ConstValue{Val: "hello"}}
 	if err := ValidateInput([]byte(`"world"`), schema); err == nil {
 		t.Error("const mismatch should fail")
 	}
 }
 
 func TestValidateInput_Const_String(t *testing.T) {
-	schema := &csSkills.JSONSchema{Const: &csSkills.ConstValue{Val: "exact"}}
+	schema := &types.JSONSchema{Const: &types.ConstValue{Val: "exact"}}
 	if err := ValidateInput([]byte(`"exact"`), schema); err != nil {
 		t.Errorf("const string match: %v", err)
 	}
@@ -603,7 +603,7 @@ func TestValidateInput_Const_String(t *testing.T) {
 }
 
 func TestValidateInput_Const_Number(t *testing.T) {
-	schema := &csSkills.JSONSchema{Const: &csSkills.ConstValue{Val: float64(42)}}
+	schema := &types.JSONSchema{Const: &types.ConstValue{Val: float64(42)}}
 	if err := ValidateInput([]byte(`42`), schema); err != nil {
 		t.Errorf("const number match: %v", err)
 	}
@@ -613,7 +613,7 @@ func TestValidateInput_Const_Number(t *testing.T) {
 }
 
 func TestValidateInput_Const_Bool(t *testing.T) {
-	schema := &csSkills.JSONSchema{Const: &csSkills.ConstValue{Val: true}}
+	schema := &types.JSONSchema{Const: &types.ConstValue{Val: true}}
 	if err := ValidateInput([]byte(`true`), schema); err != nil {
 		t.Errorf("const bool match: %v", err)
 	}
@@ -623,7 +623,7 @@ func TestValidateInput_Const_Bool(t *testing.T) {
 }
 
 func TestValidateInput_Const_Null(t *testing.T) {
-	schema := &csSkills.JSONSchema{Const: &csSkills.ConstValue{Val: nil}}
+	schema := &types.JSONSchema{Const: &types.ConstValue{Val: nil}}
 	if err := ValidateInput([]byte(`null`), schema); err != nil {
 		t.Errorf("const null match: %v", err)
 	}
@@ -633,7 +633,7 @@ func TestValidateInput_Const_Null(t *testing.T) {
 }
 
 func TestValidateInput_Const_EmptyString(t *testing.T) {
-	schema := &csSkills.JSONSchema{Const: &csSkills.ConstValue{Val: ""}}
+	schema := &types.JSONSchema{Const: &types.ConstValue{Val: ""}}
 	if err := ValidateInput([]byte(`""`), schema); err != nil {
 		t.Errorf("const empty string match: %v", err)
 	}
@@ -645,9 +645,9 @@ func TestValidateInput_Const_EmptyString(t *testing.T) {
 // --- JSON Schema 2020-12: prefixItems tests ---
 
 func TestValidateInput_PrefixItems_ValidTuple(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "array",
-		PrefixItems: []*csSkills.JSONSchema{
+		PrefixItems: []*types.JSONSchema{
 			{Type: "string"},
 			{Type: "number"},
 			{Type: "boolean"},
@@ -659,9 +659,9 @@ func TestValidateInput_PrefixItems_ValidTuple(t *testing.T) {
 }
 
 func TestValidateInput_PrefixItems_ItemTypeMismatch(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "array",
-		PrefixItems: []*csSkills.JSONSchema{
+		PrefixItems: []*types.JSONSchema{
 			{Type: "string"},
 			{Type: "number"},
 		},
@@ -672,9 +672,9 @@ func TestValidateInput_PrefixItems_ItemTypeMismatch(t *testing.T) {
 }
 
 func TestValidateInput_PrefixItems_FewerItemsThanPrefix(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "array",
-		PrefixItems: []*csSkills.JSONSchema{
+		PrefixItems: []*types.JSONSchema{
 			{Type: "string"},
 			{Type: "number"},
 			{Type: "boolean"},
@@ -687,9 +687,9 @@ func TestValidateInput_PrefixItems_FewerItemsThanPrefix(t *testing.T) {
 }
 
 func TestValidateInput_PrefixItems_MoreItemsThanPrefix(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "array",
-		PrefixItems: []*csSkills.JSONSchema{
+		PrefixItems: []*types.JSONSchema{
 			{Type: "string"},
 			{Type: "number"},
 		},
@@ -701,9 +701,9 @@ func TestValidateInput_PrefixItems_MoreItemsThanPrefix(t *testing.T) {
 }
 
 func TestValidateInput_PrefixItems_EmptyArray(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "array",
-		PrefixItems: []*csSkills.JSONSchema{
+		PrefixItems: []*types.JSONSchema{
 			{Type: "string"},
 		},
 	}
@@ -714,13 +714,13 @@ func TestValidateInput_PrefixItems_EmptyArray(t *testing.T) {
 
 func TestValidateInput_PrefixItems_WithItemsForRest(t *testing.T) {
 	// prefixItems validates first N, Items validates the rest
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "array",
-		PrefixItems: []*csSkills.JSONSchema{
+		PrefixItems: []*types.JSONSchema{
 			{Type: "string"},
 			{Type: "number"},
 		},
-		Items: &csSkills.JSONSchema{Type: "boolean"},
+		Items: &types.JSONSchema{Type: "boolean"},
 	}
 	if err := ValidateInput([]byte(`["hello",42,true,false]`), schema); err != nil {
 		t.Errorf("prefixItems + items for rest should pass: %v", err)
@@ -732,8 +732,8 @@ func TestValidateInput_PrefixItems_WithItemsForRest(t *testing.T) {
 }
 
 func TestValidateInput_PrefixItems_NilData(t *testing.T) {
-	schema := &csSkills.JSONSchema{
-		PrefixItems: []*csSkills.JSONSchema{
+	schema := &types.JSONSchema{
+		PrefixItems: []*types.JSONSchema{
 			{Type: "string"},
 		},
 	}
@@ -746,20 +746,20 @@ func TestValidateInput_PrefixItems_NilData(t *testing.T) {
 // --- JSON Schema 2020-12: if/then/else tests ---
 
 func TestValidateInput_IfThenElse_ConditionMet(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "object",
-		Properties: map[string]*csSkills.JSONSchema{
+		Properties: map[string]*types.JSONSchema{
 			"kind":  {Type: "string"},
 			"value": {Type: "string"},
 		},
-		If: &csSkills.JSONSchema{
-			Properties: map[string]*csSkills.JSONSchema{
-				"kind": {Const: &csSkills.ConstValue{Val: "greeting"}},
+		If: &types.JSONSchema{
+			Properties: map[string]*types.JSONSchema{
+				"kind": {Const: &types.ConstValue{Val: "greeting"}},
 			},
 			Required: []string{"kind"},
 		},
-		Then: &csSkills.JSONSchema{
-			Properties: map[string]*csSkills.JSONSchema{
+		Then: &types.JSONSchema{
+			Properties: map[string]*types.JSONSchema{
 				"value": {MinLength: intPtr(1)},
 			},
 		},
@@ -770,16 +770,16 @@ func TestValidateInput_IfThenElse_ConditionMet(t *testing.T) {
 }
 
 func TestValidateInput_IfThenElse_ConditionMetThenFails(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "object",
-		If: &csSkills.JSONSchema{
-			Properties: map[string]*csSkills.JSONSchema{
-				"kind": {Const: &csSkills.ConstValue{Val: "greeting"}},
+		If: &types.JSONSchema{
+			Properties: map[string]*types.JSONSchema{
+				"kind": {Const: &types.ConstValue{Val: "greeting"}},
 			},
 			Required: []string{"kind"},
 		},
-		Then: &csSkills.JSONSchema{
-			Properties: map[string]*csSkills.JSONSchema{
+		Then: &types.JSONSchema{
+			Properties: map[string]*types.JSONSchema{
 				"value": {Type: "string", MinLength: intPtr(5)},
 			},
 			Required: []string{"value"},
@@ -792,16 +792,16 @@ func TestValidateInput_IfThenElse_ConditionMetThenFails(t *testing.T) {
 }
 
 func TestValidateInput_IfThenElse_ConditionNotMetElseFails(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "object",
-		If: &csSkills.JSONSchema{
-			Properties: map[string]*csSkills.JSONSchema{
-				"kind": {Const: &csSkills.ConstValue{Val: "greeting"}},
+		If: &types.JSONSchema{
+			Properties: map[string]*types.JSONSchema{
+				"kind": {Const: &types.ConstValue{Val: "greeting"}},
 			},
 			Required: []string{"kind"},
 		},
-		Else: &csSkills.JSONSchema{
-			Properties: map[string]*csSkills.JSONSchema{
+		Else: &types.JSONSchema{
+			Properties: map[string]*types.JSONSchema{
 				"fallback": {Type: "string"},
 			},
 			Required: []string{"fallback"},
@@ -814,16 +814,16 @@ func TestValidateInput_IfThenElse_ConditionNotMetElseFails(t *testing.T) {
 }
 
 func TestValidateInput_IfThenElse_ConditionNotMetElsePasses(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "object",
-		If: &csSkills.JSONSchema{
-			Properties: map[string]*csSkills.JSONSchema{
-				"kind": {Const: &csSkills.ConstValue{Val: "greeting"}},
+		If: &types.JSONSchema{
+			Properties: map[string]*types.JSONSchema{
+				"kind": {Const: &types.ConstValue{Val: "greeting"}},
 			},
 			Required: []string{"kind"},
 		},
-		Else: &csSkills.JSONSchema{
-			Properties: map[string]*csSkills.JSONSchema{
+		Else: &types.JSONSchema{
+			Properties: map[string]*types.JSONSchema{
 				"fallback": {Type: "string"},
 			},
 			Required: []string{"fallback"},
@@ -836,11 +836,11 @@ func TestValidateInput_IfThenElse_ConditionNotMetElsePasses(t *testing.T) {
 }
 
 func TestValidateInput_IfThenElse_IfOnlyNoThenOrElse(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "object",
-		If: &csSkills.JSONSchema{
-			Properties: map[string]*csSkills.JSONSchema{
-				"kind": {Const: &csSkills.ConstValue{Val: "greeting"}},
+		If: &types.JSONSchema{
+			Properties: map[string]*types.JSONSchema{
+				"kind": {Const: &types.ConstValue{Val: "greeting"}},
 			},
 			Required: []string{"kind"},
 		},
@@ -855,16 +855,16 @@ func TestValidateInput_IfThenElse_IfOnlyNoThenOrElse(t *testing.T) {
 }
 
 func TestValidateInput_IfThenElse_IfThenNoElse(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "object",
-		If: &csSkills.JSONSchema{
-			Properties: map[string]*csSkills.JSONSchema{
-				"kind": {Const: &csSkills.ConstValue{Val: "greeting"}},
+		If: &types.JSONSchema{
+			Properties: map[string]*types.JSONSchema{
+				"kind": {Const: &types.ConstValue{Val: "greeting"}},
 			},
 			Required: []string{"kind"},
 		},
-		Then: &csSkills.JSONSchema{
-			Properties: map[string]*csSkills.JSONSchema{
+		Then: &types.JSONSchema{
+			Properties: map[string]*types.JSONSchema{
 				"value": {Type: "string"},
 			},
 			Required: []string{"value"},
@@ -882,28 +882,28 @@ func TestValidateInput_IfThenElse_IfThenNoElse(t *testing.T) {
 
 func TestValidateInput_IfThenElse_NestedConditional(t *testing.T) {
 	// Outer if checks kind=greeting, then contains inner if
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "object",
-		If: &csSkills.JSONSchema{
-			Properties: map[string]*csSkills.JSONSchema{
-				"kind": {Const: &csSkills.ConstValue{Val: "greeting"}},
+		If: &types.JSONSchema{
+			Properties: map[string]*types.JSONSchema{
+				"kind": {Const: &types.ConstValue{Val: "greeting"}},
 			},
 			Required: []string{"kind"},
 		},
-		Then: &csSkills.JSONSchema{
-			If: &csSkills.JSONSchema{
-				Properties: map[string]*csSkills.JSONSchema{
-					"formal": {Const: &csSkills.ConstValue{Val: true}},
+		Then: &types.JSONSchema{
+			If: &types.JSONSchema{
+				Properties: map[string]*types.JSONSchema{
+					"formal": {Const: &types.ConstValue{Val: true}},
 				},
 				Required: []string{"formal"},
 			},
-			Then: &csSkills.JSONSchema{
-				Properties: map[string]*csSkills.JSONSchema{
+			Then: &types.JSONSchema{
+				Properties: map[string]*types.JSONSchema{
 					"value": {Type: "string", MinLength: intPtr(5)},
 				},
 			},
-			Else: &csSkills.JSONSchema{
-				Properties: map[string]*csSkills.JSONSchema{
+			Else: &types.JSONSchema{
+				Properties: map[string]*types.JSONSchema{
 					"value": {Type: "string", MinLength: intPtr(1)},
 				},
 			},
@@ -924,20 +924,20 @@ func TestValidateInput_IfThenElse_NestedConditional(t *testing.T) {
 }
 
 func TestValidateInput_IfThenElse_WithStrict(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "object",
-		Properties: map[string]*csSkills.JSONSchema{
+		Properties: map[string]*types.JSONSchema{
 			"kind":  {Type: "string"},
 			"value": {Type: "string"},
 		},
-		If: &csSkills.JSONSchema{
-			Properties: map[string]*csSkills.JSONSchema{
-				"kind": {Const: &csSkills.ConstValue{Val: "greeting"}},
+		If: &types.JSONSchema{
+			Properties: map[string]*types.JSONSchema{
+				"kind": {Const: &types.ConstValue{Val: "greeting"}},
 			},
 			Required: []string{"kind"},
 		},
-		Then: &csSkills.JSONSchema{
-			Properties: map[string]*csSkills.JSONSchema{
+		Then: &types.JSONSchema{
+			Properties: map[string]*types.JSONSchema{
 				"value": {Type: "string"},
 			},
 			Required: []string{"value"},
@@ -952,30 +952,30 @@ func TestValidateInput_IfThenElse_WithStrict(t *testing.T) {
 // --- JSON Schema 2020-12: mixed/compatibility tests ---
 
 func TestValidateInput_MixedDraft7And202012(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type:        "object",
 		Description: "Mixed Draft 7 + 2020-12",
 		Schema:      "https://json-schema.org/draft/2020-12/schema",
-		Properties: map[string]*csSkills.JSONSchema{
+		Properties: map[string]*types.JSONSchema{
 			"role":   {Type: "string", Enum: []any{"admin", "user"}},
-			"status": {Const: &csSkills.ConstValue{Val: "active"}},
+			"status": {Const: &types.ConstValue{Val: "active"}},
 			"tags": {
 				Type: "array",
-				PrefixItems: []*csSkills.JSONSchema{
+				PrefixItems: []*types.JSONSchema{
 					{Type: "string"},
 				},
-				Items: &csSkills.JSONSchema{Type: "string"},
+				Items: &types.JSONSchema{Type: "string"},
 			},
 			"config": {
 				Type: "object",
-				If: &csSkills.JSONSchema{
-					Properties: map[string]*csSkills.JSONSchema{
-						"enabled": {Const: &csSkills.ConstValue{Val: true}},
+				If: &types.JSONSchema{
+					Properties: map[string]*types.JSONSchema{
+						"enabled": {Const: &types.ConstValue{Val: true}},
 					},
 					Required: []string{"enabled"},
 				},
-				Then: &csSkills.JSONSchema{
-					Properties: map[string]*csSkills.JSONSchema{
+				Then: &types.JSONSchema{
+					Properties: map[string]*types.JSONSchema{
 						"level": {Type: "string", MinLength: intPtr(1)},
 					},
 					Required: []string{"level"},
@@ -1008,20 +1008,20 @@ func TestValidateInput_MixedDraft7And202012(t *testing.T) {
 
 func TestValidateInput_SchemaVersionDetection(t *testing.T) {
 	// Schema version is purely metadata — validation should work regardless
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Schema: "https://json-schema.org/draft/2020-12/schema",
 		Type:   "string",
-		Const:  &csSkills.ConstValue{Val: "test"},
+		Const:  &types.ConstValue{Val: "test"},
 	}
 	if err := ValidateInput([]byte(`"test"`), schema); err != nil {
 		t.Errorf("2020-12 schema version with const: %v", err)
 	}
 
 	// Draft 7 style schema still works (no $schema field)
-	draft7 := &csSkills.JSONSchema{
+	draft7 := &types.JSONSchema{
 		Type:     "object",
 		Required: []string{"name"},
-		Properties: map[string]*csSkills.JSONSchema{
+		Properties: map[string]*types.JSONSchema{
 			"name": {Type: "string"},
 		},
 	}
@@ -1033,15 +1033,15 @@ func TestValidateInput_SchemaVersionDetection(t *testing.T) {
 // --- G15: JSONSchema $defs serialization ---
 
 func TestJSONSchema_DefsSerialization(t *testing.T) {
-	schema := &csSkills.JSONSchema{
+	schema := &types.JSONSchema{
 		Type: "object",
-		Properties: map[string]*csSkills.JSONSchema{
+		Properties: map[string]*types.JSONSchema{
 			"ref": {Type: "string"},
 		},
-		Defs: map[string]*csSkills.JSONSchema{
+		Defs: map[string]*types.JSONSchema{
 			"address": {
 				Type: "object",
-				Properties: map[string]*csSkills.JSONSchema{
+				Properties: map[string]*types.JSONSchema{
 					"street": {Type: "string"},
 					"city":   {Type: "string"},
 				},
@@ -1054,7 +1054,7 @@ func TestJSONSchema_DefsSerialization(t *testing.T) {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	var decoded csSkills.JSONSchema
+	var decoded types.JSONSchema
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}

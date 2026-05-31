@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/openbotstack/openbotstack-core/ai"
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 func TestClaudeProviderID(t *testing.T) {
@@ -24,11 +24,11 @@ func TestClaudeProviderCapabilities(t *testing.T) {
 	provider := NewClaudeProvider("", "test-api-key", "claude-3-opus-20240229")
 	caps := provider.Capabilities()
 
-	expected := []skills.CapabilityType{
-		skills.CapTextGeneration,
-		skills.CapToolCalling,
-		skills.CapVision,
-		skills.CapStreaming,
+	expected := []types.CapabilityType{
+		types.CapTextGeneration,
+		types.CapToolCalling,
+		types.CapVision,
+		types.CapStreaming,
 	}
 
 	if len(caps) != len(expected) {
@@ -53,12 +53,12 @@ func TestOpenAIProviderCapabilities(t *testing.T) {
 	provider := NewOpenAIProvider("", "test-api-key", "gpt-4o")
 	caps := provider.Capabilities()
 
-	expected := []skills.CapabilityType{
-		skills.CapTextGeneration,
-		skills.CapToolCalling,
-		skills.CapJSONMode,
-		skills.CapVision,
-		skills.CapEmbedding,
+	expected := []types.CapabilityType{
+		types.CapTextGeneration,
+		types.CapToolCalling,
+		types.CapJSONMode,
+		types.CapVision,
+		types.CapEmbedding,
 	}
 
 	if len(caps) != len(expected) {
@@ -82,8 +82,8 @@ func TestSiliconFlowProviderID(t *testing.T) {
 
 func TestProviderGenerateNoAPIKey(t *testing.T) {
 	provider := NewOpenAIProvider("", "", "gpt-4o")
-	_, err := provider.Generate(context.Background(), skills.GenerateRequest{
-		Messages: []skills.Message{{Role: "user", Content: "Hello"}},
+	_, err := provider.Generate(context.Background(), types.GenerateRequest{
+		Messages: []types.Message{{Role: "user", Content: "Hello"}},
 	})
 	if err == nil {
 		t.Error("Expected error for empty API key, got nil")
@@ -138,8 +138,8 @@ func TestOpenAICompatibleGenerate(t *testing.T) {
 
 	provider := NewOpenAIProvider(server.URL, "test-key", "gpt-4o-test")
 
-	req := skills.GenerateRequest{
-		Messages: []skills.Message{
+	req := types.GenerateRequest{
+		Messages: []types.Message{
 			{Role: "system", Content: "You are helpful."},
 			{Role: "user", Content: "Hello"},
 		},
@@ -208,9 +208,9 @@ func TestOpenAICompatibleGenerateWithToolCalls(t *testing.T) {
 	defer server.Close()
 
 	provider := NewOpenAIProvider(server.URL, "test-key", "gpt-4o")
-	resp, err := provider.Generate(context.Background(), skills.GenerateRequest{
-		Messages: []skills.Message{{Role: "user", Content: "What's the weather?"}},
-		Tools: []skills.ToolDefinition{
+	resp, err := provider.Generate(context.Background(), types.GenerateRequest{
+		Messages: []types.Message{{Role: "user", Content: "What's the weather?"}},
+		Tools: []types.ToolDefinition{
 			{Name: "get_weather", Description: "Get weather for a location"},
 		},
 	})
@@ -246,8 +246,8 @@ func TestOpenAICompatibleGenerateAPIError(t *testing.T) {
 	defer server.Close()
 
 	provider := NewOpenAIProvider(server.URL, "bad-key", "gpt-4o")
-	_, err := provider.Generate(context.Background(), skills.GenerateRequest{
-		Messages: []skills.Message{{Role: "user", Content: "Hello"}},
+	_, err := provider.Generate(context.Background(), types.GenerateRequest{
+		Messages: []types.Message{{Role: "user", Content: "Hello"}},
 	})
 	if err == nil {
 		t.Error("Expected error for 401 response, got nil")
@@ -273,10 +273,10 @@ func TestSyncRetryOn500(t *testing.T) {
 		baseURL: server.URL, apiKey: "key", modelName: "model",
 		client:       &http.Client{Timeout: 10 * time.Second},
 		maxRetries:   3,
-		capabilities: []skills.CapabilityType{skills.CapTextGeneration},
+		capabilities: []types.CapabilityType{types.CapTextGeneration},
 	}
-	resp, err := p.Generate(context.Background(), skills.GenerateRequest{
-		Messages: []skills.Message{{Role: "user", Content: "hi"}},
+	resp, err := p.Generate(context.Background(), types.GenerateRequest{
+		Messages: []types.Message{{Role: "user", Content: "hi"}},
 	})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -299,10 +299,10 @@ func TestSyncRetryExhaustion(t *testing.T) {
 		baseURL: server.URL, apiKey: "key", modelName: "model",
 		client:       &http.Client{Timeout: 10 * time.Second},
 		maxRetries:   2,
-		capabilities: []skills.CapabilityType{skills.CapTextGeneration},
+		capabilities: []types.CapabilityType{types.CapTextGeneration},
 	}
-	_, err := p.Generate(context.Background(), skills.GenerateRequest{
-		Messages: []skills.Message{{Role: "user", Content: "hi"}},
+	_, err := p.Generate(context.Background(), types.GenerateRequest{
+		Messages: []types.Message{{Role: "user", Content: "hi"}},
 	})
 	if err == nil {
 		t.Error("Expected error after retry exhaustion")
@@ -321,10 +321,10 @@ func TestSyncNoRetryOn400(t *testing.T) {
 		baseURL: server.URL, apiKey: "key", modelName: "model",
 		client:       &http.Client{Timeout: 10 * time.Second},
 		maxRetries:   3,
-		capabilities: []skills.CapabilityType{skills.CapTextGeneration},
+		capabilities: []types.CapabilityType{types.CapTextGeneration},
 	}
-	_, err := p.Generate(context.Background(), skills.GenerateRequest{
-		Messages: []skills.Message{{Role: "user", Content: "hi"}},
+	_, err := p.Generate(context.Background(), types.GenerateRequest{
+		Messages: []types.Message{{Role: "user", Content: "hi"}},
 	})
 	if err == nil {
 		t.Error("Expected error for 400")
@@ -552,10 +552,10 @@ func TestSyncTypedErrors(t *testing.T) {
 			p := &openAIProvider{
 				baseURL: server.URL, apiKey: "key", modelName: "model",
 				client:       &http.Client{Timeout: 10 * time.Second},
-				capabilities: []skills.CapabilityType{skills.CapTextGeneration},
+				capabilities: []types.CapabilityType{types.CapTextGeneration},
 			}
-			_, err := p.Generate(context.Background(), skills.GenerateRequest{
-				Messages: []skills.Message{{Role: "user", Content: "hi"}},
+			_, err := p.Generate(context.Background(), types.GenerateRequest{
+				Messages: []types.Message{{Role: "user", Content: "hi"}},
 			})
 			if err == nil {
 				t.Fatal("Expected error")

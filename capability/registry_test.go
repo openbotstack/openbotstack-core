@@ -6,14 +6,14 @@ import (
 	"sync"
 	"testing"
 
-	skills "github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 // mockCapability is a test Capability implementation.
 type mockCapability struct {
 	id, name, desc string
 	kind           CapabilityKind
-	schema         *skills.JSONSchema
+	schema         *types.JSONSchema
 	sourceID       string
 }
 
@@ -21,7 +21,7 @@ func (m *mockCapability) ID() string                      { return m.id }
 func (m *mockCapability) Name() string                    { return m.name }
 func (m *mockCapability) Description() string             { return m.desc }
 func (m *mockCapability) Kind() CapabilityKind            { return m.kind }
-func (m *mockCapability) InputSchema() *skills.JSONSchema { return m.schema }
+func (m *mockCapability) InputSchema() *types.JSONSchema { return m.schema }
 func (m *mockCapability) SourceID() string                { return m.sourceID }
 
 func TestMemoryCapabilityRegistry_RegisterAndList(t *testing.T) {

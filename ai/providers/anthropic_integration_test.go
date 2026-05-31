@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 const (
@@ -21,8 +21,8 @@ func TestAnthropicIntegrationGenerate(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	resp, err := provider.Generate(ctx, skills.GenerateRequest{
-		Messages: []skills.Message{
+	resp, err := provider.Generate(ctx, types.GenerateRequest{
+		Messages: []types.Message{
 			{Role: "system", Content: "You are a helpful assistant. Reply concisely."},
 			{Role: "user", Content: "Say 'Hello World' and nothing else."},
 		},
@@ -53,8 +53,8 @@ func TestAnthropicIntegrationStreaming(t *testing.T) {
 	defer cancel()
 
 	var sp StreamingModelProvider = provider
-	ch, err := sp.GenerateStream(ctx, skills.GenerateRequest{
-		Messages: []skills.Message{
+	ch, err := sp.GenerateStream(ctx, types.GenerateRequest{
+		Messages: []types.Message{
 			{Role: "user", Content: "Count from 1 to 5."},
 		},
 		MaxTokens:   2048,
@@ -92,17 +92,17 @@ func TestAnthropicIntegrationToolCalls(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	resp, err := provider.Generate(ctx, skills.GenerateRequest{
-		Messages: []skills.Message{
+	resp, err := provider.Generate(ctx, types.GenerateRequest{
+		Messages: []types.Message{
 			{Role: "user", Content: "What is the weather in Tokyo?"},
 		},
-		Tools: []skills.ToolDefinition{
+		Tools: []types.ToolDefinition{
 			{
 				Name:        "get_weather",
 				Description: "Get the current weather for a given city",
-				Parameters: &skills.JSONSchema{
+				Parameters: &types.JSONSchema{
 					Type: "object",
-					Properties: map[string]*skills.JSONSchema{
+					Properties: map[string]*types.JSONSchema{
 						"city": {Type: "string"},
 					},
 					Required: []string{"city"},

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 // ProviderConfig holds configuration for any OpenAI-compatible LLM endpoint.
@@ -27,7 +27,7 @@ type ProviderConfig struct {
 	// MaxRetries is the number of retries for 5xx/network errors. Defaults to 0.
 	MaxRetries int
 	// Capabilities declares what the model supports. Defaults to TextGeneration, ToolCalling, Streaming.
-	Capabilities []skills.CapabilityType
+	Capabilities []types.CapabilityType
 }
 
 // Validate checks the config and applies defaults. Returns error if required fields are missing.
@@ -53,10 +53,10 @@ func (c *ProviderConfig) Validate() error {
 		c.MaxRetries = 0
 	}
 	if c.Capabilities == nil {
-		c.Capabilities = []skills.CapabilityType{
-			skills.CapTextGeneration,
-			skills.CapToolCalling,
-			skills.CapStreaming,
+		c.Capabilities = []types.CapabilityType{
+			types.CapTextGeneration,
+			types.CapToolCalling,
+			types.CapStreaming,
 		}
 	}
 
@@ -70,7 +70,7 @@ type openAIProvider struct {
 	modelName    string
 	headers      map[string]string
 	client       *http.Client
-	capabilities []skills.CapabilityType
+	capabilities []types.CapabilityType
 	maxRetries   int
 }
 
@@ -95,15 +95,15 @@ func (p *openAIProvider) ID() string {
 	return "openai/" + p.modelName
 }
 
-func (p *openAIProvider) Capabilities() []skills.CapabilityType {
+func (p *openAIProvider) Capabilities() []types.CapabilityType {
 	return p.capabilities
 }
 
-func (p *openAIProvider) Generate(ctx context.Context, req skills.GenerateRequest) (*skills.GenerateResponse, error) {
+func (p *openAIProvider) Generate(ctx context.Context, req types.GenerateRequest) (*types.GenerateResponse, error) {
 	return openAICompatibleGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, p.headers, req, p.maxRetries)
 }
 
-func (p *openAIProvider) GenerateStream(ctx context.Context, req skills.GenerateRequest) (<-chan skills.StreamChunk, error) {
+func (p *openAIProvider) GenerateStream(ctx context.Context, req types.GenerateRequest) (<-chan types.StreamChunk, error) {
 	return openAICompatibleStream(ctx, p.client, p.baseURL, p.apiKey, p.modelName, p.headers, req, p.maxRetries)
 }
 

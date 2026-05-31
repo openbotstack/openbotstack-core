@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/openbotstack/openbotstack-core/ai"
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	"github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 // streamChatRequest extends chatRequest with streaming fields.
@@ -64,9 +64,9 @@ func openAICompatibleStream(
 	client *http.Client,
 	baseURL, apiKey, model string,
 	headers map[string]string,
-	req skills.GenerateRequest,
+	req types.GenerateRequest,
 	maxRetries int,
-) (<-chan skills.StreamChunk, error) {
+) (<-chan types.StreamChunk, error) {
 	// Build request body
 	messages := make([]chatMessage, 0, len(req.Messages))
 	for _, m := range req.Messages {
@@ -170,13 +170,13 @@ func openAICompatibleStream(
 	}
 
 	// Start goroutine to read SSE stream
-	ch := make(chan skills.StreamChunk, 64)
+	ch := make(chan types.StreamChunk, 64)
 	go func() {
 		defer func() { _ = resp.Body.Close() }()
 		defer close(ch)
 
 		// Tool call accumulator: index → accumulated state
-		toolCallAccum := make(map[int]*skills.ToolCall)
+		toolCallAccum := make(map[int]*types.ToolCall)
 		toolCallCount := 0
 
 		scanner := bufio.NewScanner(resp.Body)
@@ -203,7 +203,7 @@ func openAICompatibleStream(
 				continue
 			}
 
-			sc := skills.StreamChunk{}
+			sc := types.StreamChunk{}
 			if len(chunk.Choices) > 0 {
 				sc.Content = chunk.Choices[0].Delta.Content
 				if chunk.Choices[0].FinishReason != nil {
@@ -221,7 +221,7 @@ func openAICompatibleStream(
 							}
 							existing.Arguments += tc.Function.Arguments
 						} else {
-							toolCallAccum[idx] = &skills.ToolCall{
+							toolCallAccum[idx] = &types.ToolCall{
 								ID:        tc.ID,
 								Name:      tc.Function.Name,
 								Arguments: tc.Function.Arguments,
@@ -234,7 +234,7 @@ func openAICompatibleStream(
 				}
 				// Emit accumulated tool call state on every chunk
 				if toolCallCount > 0 {
-					sc.ToolCalls = make([]skills.ToolCall, 0, toolCallCount)
+					sc.ToolCalls = make([]types.ToolCall, 0, toolCallCount)
 					for i := 0; i < toolCallCount; i++ {
 						if tc, ok := toolCallAccum[i]; ok {
 							sc.ToolCalls = append(sc.ToolCalls, *tc)
@@ -243,7 +243,7 @@ func openAICompatibleStream(
 				}
 			}
 			if chunk.Usage != nil {
-				sc.Usage = skills.TokenUsage{
+				sc.Usage = types.TokenUsage{
 					PromptTokens:     chunk.Usage.PromptTokens,
 					CompletionTokens: chunk.Usage.CompletionTokens,
 					TotalTokens:      chunk.Usage.TotalTokens,
@@ -255,7 +255,7 @@ func openAICompatibleStream(
 			case <-ctx.Done():
 				// Non-blocking send: consumer may have already stopped reading.
 				select {
-				case ch <- skills.StreamChunk{Error: ctx.Err()}:
+				case ch <- types.StreamChunk{Error: ctx.Err()}:
 				default:
 				}
 				return
@@ -264,7 +264,7 @@ func openAICompatibleStream(
 
 		if err := scanner.Err(); err != nil && err != io.EOF {
 			select {
-			case ch <- skills.StreamChunk{Error: fmt.Errorf("stream read error: %w", err)}:
+			case ch <- types.StreamChunk{Error: fmt.Errorf("stream read error: %w", err)}:
 			default:
 			}
 		}
