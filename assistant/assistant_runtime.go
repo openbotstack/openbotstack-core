@@ -12,10 +12,7 @@ type AssistantRuntime struct {
 	
 	// Soul defines the personality and behavioral instructions.
 	Soul            AssistantSoul
-	
-	// Memory provides access to ephemeral and persistent knowledge.
-	Memory          AssistantMemory
-	
+
 	// Skills available to this specific assistant instance.
 	Skills          []string
 	

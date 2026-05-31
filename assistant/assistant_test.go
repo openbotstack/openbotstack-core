@@ -252,7 +252,6 @@ func TestAssistantRuntime_Construction(t *testing.T) {
 		AssistantID:     "assistant-123",
 		TenantID:        "tenant-456",
 		Soul:            soul,
-		Memory:          NewSessionMemory(),
 		Skills:          []string{"skill-1", "skill-2"},
 		Policies:        []string{"policy-a"},
 		MemoryScope:     "session",
@@ -267,9 +266,6 @@ func TestAssistantRuntime_Construction(t *testing.T) {
 	}
 	if rt.Soul.SystemPrompt != "You are a test assistant." {
 		t.Errorf("Soul.SystemPrompt = %q, want %q", rt.Soul.SystemPrompt, "You are a test assistant.")
-	}
-	if rt.Memory == nil {
-		t.Error("Memory should not be nil")
 	}
 	if len(rt.Skills) != 2 {
 		t.Errorf("len(Skills) = %d, want 2", len(rt.Skills))
@@ -296,9 +292,6 @@ func TestAssistantRuntime_EmptyFields(t *testing.T) {
 	}
 	if rt.Skills != nil {
 		t.Errorf("Skills = %v, want nil", rt.Skills)
-	}
-	if rt.Memory != nil {
-		t.Error("Memory should be nil when not set")
 	}
 }
 

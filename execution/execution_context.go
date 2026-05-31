@@ -50,6 +50,11 @@ type ExecutionContext struct {
 	// This prevents cross-tenant callback leakage under concurrent requests.
 	ProgressFn func(eventType, content string, turn int, tool string)
 
+	// plannerCtx holds the PlannerContext for LLM steps.
+	// Set explicitly by PlanAndRun, retrieved by the harness during LLM step execution.
+	// Replaces context.Value threading — the dependency is now visible.
+	plannerCtx any
+
 	// State (guarded by mutex)
 	mu      sync.RWMutex
 	results []StepResult
@@ -84,6 +89,16 @@ func (ec *ExecutionContext) AddResult(res StepResult) {
 	defer ec.mu.Unlock()
 	
 	ec.results = append(ec.results, res)
+}
+
+// SetPlannerContext stores the planner context for LLM step execution.
+func (ec *ExecutionContext) SetPlannerContext(pCtx any) {
+	ec.plannerCtx = pCtx
+}
+
+// PlannerContext retrieves the stored planner context. Returns nil if not set.
+func (ec *ExecutionContext) PlannerContext() any {
+	return ec.plannerCtx
 }
 
 // Results returns a copy of all accumulated step results.
