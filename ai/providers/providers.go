@@ -358,67 +358,82 @@ func openAICompatibleEmbed(
 
 // ----- Provider implementations -----
 
-// OpenAIProvider implements ModelProvider for OpenAI models.
-type OpenAIProvider struct {
-	baseURL   string
-	apiKey    string
-	modelName string
-	client    *http.Client
+// OpenAICompatibleProvider implements ModelProvider for any OpenAI-compatible endpoint.
+// Parameterized by ID prefix, capabilities, default base URL, and optional embed model.
+// Used by OpenAI, ModelScope, SiliconFlow, and any custom OpenAI-compatible endpoint.
+type OpenAICompatibleProvider struct {
+	baseURL       string
+	apiKey        string
+	modelName     string
+	client        *http.Client
+	idPrefix      string
+	capabilities  []types.CapabilityType
+	embedModel    string // empty means embedding not supported
+	errName       string // for error messages (e.g., "openai", "modelscope")
 }
 
-// NewOpenAIProvider creates a new OpenAI provider.
-// If baseURL is empty, defaults to the official OpenAI API.
-func NewOpenAIProvider(baseURL, apiKey, modelName string) *OpenAIProvider {
+func newOpenAICompatible(baseURL, defaultURL, apiKey, modelName, idPrefix string, caps []types.CapabilityType, embedModel string) *OpenAICompatibleProvider {
 	if baseURL == "" {
-		baseURL = defaultOpenAIBaseURL
+		baseURL = defaultURL
 	}
-	return &OpenAIProvider{
-		baseURL:   baseURL,
-		apiKey:    apiKey,
-		modelName: modelName,
-		client:    &http.Client{Timeout: httpTimeoutSeconds * time.Second},
-	}
-}
-
-func (p *OpenAIProvider) ID() string {
-	return "openai/" + p.modelName
-}
-
-func (p *OpenAIProvider) Capabilities() []types.CapabilityType {
-	return []types.CapabilityType{
-		types.CapTextGeneration,
-		types.CapToolCalling,
-		types.CapJSONMode,
-		types.CapVision,
-		types.CapEmbedding,
+	return &OpenAICompatibleProvider{
+		baseURL:      baseURL,
+		apiKey:       apiKey,
+		modelName:    modelName,
+		client:       &http.Client{Timeout: httpTimeoutSeconds * time.Second},
+		idPrefix:     idPrefix,
+		capabilities: caps,
+		embedModel:   embedModel,
+		errName:      idPrefix,
 	}
 }
 
-func (p *OpenAIProvider) Generate(ctx context.Context, req types.GenerateRequest) (*types.GenerateResponse, error) {
+func NewOpenAIProvider(baseURL, apiKey, modelName string) *OpenAICompatibleProvider {
+	return newOpenAICompatible(baseURL, defaultOpenAIBaseURL, apiKey, modelName, "openai",
+		[]types.CapabilityType{types.CapTextGeneration, types.CapToolCalling, types.CapJSONMode, types.CapVision, types.CapEmbedding},
+		"text-embedding-3-small")
+}
+
+func NewModelScopeProvider(baseURL, apiKey, modelName string) *OpenAICompatibleProvider {
+	return newOpenAICompatible(baseURL, defaultModelScopeBaseURL, apiKey, modelName, "modelscope",
+		[]types.CapabilityType{types.CapTextGeneration, types.CapToolCalling}, "")
+}
+
+func NewSiliconFlowProvider(baseURL, apiKey, modelName string) *OpenAICompatibleProvider {
+	return newOpenAICompatible(baseURL, defaultSiliconFlowBaseURL, apiKey, modelName, "siliconflow",
+		[]types.CapabilityType{types.CapTextGeneration, types.CapToolCalling}, "")
+}
+
+func (p *OpenAICompatibleProvider) ID() string { return p.idPrefix + "/" + p.modelName }
+
+func (p *OpenAICompatibleProvider) Capabilities() []types.CapabilityType { return p.capabilities }
+
+func (p *OpenAICompatibleProvider) Generate(ctx context.Context, req types.GenerateRequest) (*types.GenerateResponse, error) {
 	if p.apiKey == "" {
-		return nil, fmt.Errorf("openai: API key not configured")
+		return nil, fmt.Errorf("%s: API key not configured", p.errName)
 	}
 	return openAICompatibleGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, nil, req, 0)
 }
 
-func (p *OpenAIProvider) GenerateStream(ctx context.Context, req types.GenerateRequest) (<-chan types.StreamChunk, error) {
+func (p *OpenAICompatibleProvider) GenerateStream(ctx context.Context, req types.GenerateRequest) (<-chan types.StreamChunk, error) {
 	if p.apiKey == "" {
-		return nil, fmt.Errorf("openai: API key not configured")
+		return nil, fmt.Errorf("%s: API key not configured", p.errName)
 	}
 	return openAICompatibleStream(ctx, p.client, p.baseURL, p.apiKey, p.modelName, nil, req, 0)
 }
 
-func (p *OpenAIProvider) Embed(ctx context.Context, texts []string) ([][]float32, error) {
-	if p.apiKey == "" {
-		return nil, fmt.Errorf("openai: API key not configured")
+func (p *OpenAICompatibleProvider) Embed(ctx context.Context, texts []string) ([][]float32, error) {
+	if p.embedModel == "" {
+		return nil, ai.ErrCapabilityNotSupported
 	}
-	model := "text-embedding-3-small"
-	return openAICompatibleEmbed(ctx, p.client, p.baseURL, p.apiKey, model, nil, texts, 0)
+	if p.apiKey == "" {
+		return nil, fmt.Errorf("%s: API key not configured", p.errName)
+	}
+	return openAICompatibleEmbed(ctx, p.client, p.baseURL, p.apiKey, p.embedModel, nil, texts, 0)
 }
 
 // ClaudeProvider implements ModelProvider for Anthropic Claude models.
 // Uses the native Anthropic Messages API (/v1/messages).
-// Also implements StreamingModelProvider for SSE streaming support.
 type ClaudeProvider struct {
 	baseURL   string
 	apiKey    string
@@ -426,8 +441,6 @@ type ClaudeProvider struct {
 	client    *http.Client
 }
 
-// NewClaudeProvider creates a new Claude provider.
-// If baseURL is empty, defaults to the Anthropic API.
 func NewClaudeProvider(baseURL, apiKey, modelName string) *ClaudeProvider {
 	if baseURL == "" {
 		baseURL = defaultClaudeBaseURL
@@ -440,17 +453,10 @@ func NewClaudeProvider(baseURL, apiKey, modelName string) *ClaudeProvider {
 	}
 }
 
-func (p *ClaudeProvider) ID() string {
-	return "anthropic/" + p.modelName
-}
+func (p *ClaudeProvider) ID() string { return "anthropic/" + p.modelName }
 
 func (p *ClaudeProvider) Capabilities() []types.CapabilityType {
-	return []types.CapabilityType{
-		types.CapTextGeneration,
-		types.CapToolCalling,
-		types.CapVision,
-		types.CapStreaming,
-	}
+	return []types.CapabilityType{types.CapTextGeneration, types.CapToolCalling, types.CapVision, types.CapStreaming}
 }
 
 func (p *ClaudeProvider) Generate(ctx context.Context, req types.GenerateRequest) (*types.GenerateResponse, error) {
@@ -460,7 +466,6 @@ func (p *ClaudeProvider) Generate(ctx context.Context, req types.GenerateRequest
 	return anthropicMessagesGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, req, 0)
 }
 
-// GenerateStream implements StreamingModelProvider for SSE streaming.
 func (p *ClaudeProvider) GenerateStream(ctx context.Context, req types.GenerateRequest) (<-chan types.StreamChunk, error) {
 	if p.apiKey == "" {
 		return nil, fmt.Errorf("claude: API key not configured")
@@ -469,105 +474,5 @@ func (p *ClaudeProvider) GenerateStream(ctx context.Context, req types.GenerateR
 }
 
 func (p *ClaudeProvider) Embed(ctx context.Context, texts []string) ([][]float32, error) {
-	return nil, ai.ErrCapabilityNotSupported
-}
-
-// ModelScopeProvider implements ModelProvider for Alibaba ModelScope.
-type ModelScopeProvider struct {
-	baseURL   string
-	apiKey    string
-	modelName string
-	client    *http.Client
-}
-
-// NewModelScopeProvider creates a new ModelScope provider.
-func NewModelScopeProvider(baseURL, apiKey, modelName string) *ModelScopeProvider {
-	if baseURL == "" {
-		baseURL = defaultModelScopeBaseURL
-	}
-	return &ModelScopeProvider{
-		baseURL:   baseURL,
-		apiKey:    apiKey,
-		modelName: modelName,
-		client:    &http.Client{Timeout: httpTimeoutSeconds * time.Second},
-	}
-}
-
-func (p *ModelScopeProvider) ID() string {
-	return "modelscope/" + p.modelName
-}
-
-func (p *ModelScopeProvider) Capabilities() []types.CapabilityType {
-	return []types.CapabilityType{
-		types.CapTextGeneration,
-		types.CapToolCalling,
-	}
-}
-
-func (p *ModelScopeProvider) Generate(ctx context.Context, req types.GenerateRequest) (*types.GenerateResponse, error) {
-	if p.apiKey == "" {
-		return nil, fmt.Errorf("modelscope: API key not configured")
-	}
-	return openAICompatibleGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, nil, req, 0)
-}
-
-func (p *ModelScopeProvider) GenerateStream(ctx context.Context, req types.GenerateRequest) (<-chan types.StreamChunk, error) {
-	if p.apiKey == "" {
-		return nil, fmt.Errorf("modelscope: API key not configured")
-	}
-	return openAICompatibleStream(ctx, p.client, p.baseURL, p.apiKey, p.modelName, nil, req, 0)
-}
-
-func (p *ModelScopeProvider) Embed(ctx context.Context, texts []string) ([][]float32, error) {
-	return nil, ai.ErrCapabilityNotSupported
-}
-
-// SiliconFlowProvider implements ModelProvider for SiliconFlow gateway.
-type SiliconFlowProvider struct {
-	baseURL   string
-	apiKey    string
-	modelName string
-	client    *http.Client
-}
-
-// NewSiliconFlowProvider creates a new SiliconFlow provider.
-func NewSiliconFlowProvider(baseURL, apiKey, modelName string) *SiliconFlowProvider {
-	if baseURL == "" {
-		baseURL = defaultSiliconFlowBaseURL
-	}
-	return &SiliconFlowProvider{
-		baseURL:   baseURL,
-		apiKey:    apiKey,
-		modelName: modelName,
-		client:    &http.Client{Timeout: httpTimeoutSeconds * time.Second},
-	}
-}
-
-func (p *SiliconFlowProvider) ID() string {
-	return "siliconflow/" + p.modelName
-}
-
-func (p *SiliconFlowProvider) Capabilities() []types.CapabilityType {
-	return []types.CapabilityType{
-		types.CapTextGeneration,
-		types.CapToolCalling,
-	}
-}
-
-func (p *SiliconFlowProvider) Generate(ctx context.Context, req types.GenerateRequest) (*types.GenerateResponse, error) {
-	if p.apiKey == "" {
-		return nil, fmt.Errorf("siliconflow: API key not configured")
-	}
-	return openAICompatibleGenerate(ctx, p.client, p.baseURL, p.apiKey, p.modelName, nil, req, 0)
-}
-
-func (p *SiliconFlowProvider) GenerateStream(ctx context.Context, req types.GenerateRequest) (<-chan types.StreamChunk, error) {
-	if p.apiKey == "" {
-		return nil, fmt.Errorf("siliconflow: API key not configured")
-	}
-	return openAICompatibleStream(ctx, p.client, p.baseURL, p.apiKey, p.modelName, nil, req, 0)
-}
-
-func (p *SiliconFlowProvider) Embed(ctx context.Context, texts []string) ([][]float32, error) {
 	return nil, ai.ErrCapabilityNotSupported
 }
