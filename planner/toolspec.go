@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/openbotstack/openbotstack-core/capability"
-	skills "github.com/openbotstack/openbotstack-core/control/skills"
+	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 // ToolSpec is a lightweight representation of a skill's input schema
@@ -21,8 +21,8 @@ type ToolSpec struct {
 	Required    []string          // required parameter names
 }
 
-// SchemaToToolSpec creates a lightweight ToolSpec from a skills.SkillDescriptor.
-func SchemaToToolSpec(desc skills.SkillDescriptor) ToolSpec {
+// SchemaToToolSpec creates a lightweight ToolSpec from a SkillDescriptor.
+func SchemaToToolSpec(desc aitypes.SkillDescriptor) ToolSpec {
 	return descriptorToToolSpec(desc)
 }
 
@@ -36,7 +36,7 @@ func CapabilityToToolSpec(desc capability.CapabilityDescriptor) ToolSpec {
 // descriptorToToolSpec is the canonical conversion from SkillDescriptor to ToolSpec.
 // Both SchemaToToolSpec and CapabilityToToolSpec delegate here, eliminating the
 // previous 80% code duplication.
-func descriptorToToolSpec(desc skills.SkillDescriptor) ToolSpec {
+func descriptorToToolSpec(desc aitypes.SkillDescriptor) ToolSpec {
 	spec := ToolSpec{
 		ID:          desc.ID,
 		Name:        desc.Name,

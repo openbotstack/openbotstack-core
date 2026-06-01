@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
 	"gopkg.in/yaml.v3"
 )
 
@@ -29,8 +29,8 @@ type SkillManifest struct {
 	Name        string         `yaml:"name,omitempty"`
 	Description string         `yaml:"description,omitempty"`
 	Execution   ExecutionConfig `yaml:"execution"`
-	InputSchema *skills.JSONSchema `yaml:"input_schema,omitempty"`
-	OutputSchema *skills.JSONSchema `yaml:"output_schema,omitempty"`
+	InputSchema *aitypes.JSONSchema `yaml:"input_schema,omitempty"`
+	OutputSchema *aitypes.JSONSchema `yaml:"output_schema,omitempty"`
 	Requires    []string       `yaml:"requires,omitempty"`
 	Permissions []string       `yaml:"permissions,omitempty"`
 	Timeout     time.Duration  `yaml:"timeout,omitempty"`

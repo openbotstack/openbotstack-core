@@ -13,7 +13,7 @@
 package mcp
 
 import (
-	skills "github.com/openbotstack/openbotstack-core/control/skills"
+	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 // --- JSON-RPC 2.0 types ---
@@ -130,7 +130,7 @@ type ServerConfig struct {
 type ClientTool struct {
 	Name        string             `json:"name"`
 	Description string             `json:"description,omitempty"`
-	InputSchema *skills.JSONSchema `json:"input_schema,omitempty"`
+	InputSchema *aitypes.JSONSchema `json:"input_schema,omitempty"`
 }
 
 // CallToolResult is the result of calling an MCP tool via the client.

@@ -732,20 +732,3 @@ func TestInMemoryRegistry_Subscribe_ReentrantSafe(t *testing.T) {
 		t.Fatalf("register with re-entrant callback should not deadlock: %v", err)
 	}
 }
-
-// --- G18: SkillInfo compile-time compatibility ---
-
-// TestRegistrySkill_SatisfiesSkillInfo verifies that registry.Skill
-// is a superset of control/skills.SkillInfo. If this compiles, the
-// interface contract is satisfied.
-func TestRegistrySkill_SatisfiesSkillInfo(t *testing.T) {
-	// Compile-time assertion: registry.Skill must satisfy control/skills.SkillInfo
-	var _ skills.SkillInfo = (registryskills.Skill)(nil)
-
-	// Runtime verification with a concrete implementation
-	var s registryskills.Skill = &testSkill{id: "compile-check"}
-	var info skills.SkillInfo = s
-	if info.ID() != "compile-check" {
-		t.Errorf("ID: expected 'compile-check', got %q", info.ID())
-	}
-}

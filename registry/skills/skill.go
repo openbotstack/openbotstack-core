@@ -11,7 +11,7 @@ package skills
 import (
 	"time"
 
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 // Skill defines a governed, declarative unit of capability.
@@ -36,11 +36,11 @@ type Skill interface {
 
 	// InputSchema returns the JSON Schema defining expected inputs.
 	// Returns nil if the skill takes no inputs.
-	InputSchema() *skills.JSONSchema
+	InputSchema() *aitypes.JSONSchema
 
 	// OutputSchema returns the JSON Schema defining expected outputs.
 	// Returns nil if the skill produces no structured output.
-	OutputSchema() *skills.JSONSchema
+	OutputSchema() *aitypes.JSONSchema
 
 	// RequiredPermissions returns the permission strings this skill requires.
 	// Empty slice means no special permissions required.

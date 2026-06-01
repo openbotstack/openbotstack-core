@@ -142,6 +142,18 @@ type StreamChunk struct {
 	Error error
 }
 
+// SkillDescriptor describes a discrete capability that can be presented
+// to the planner as an available tool. Carries Kind and SourceID fields
+// to distinguish the origin (skill, MCP, native, external).
+type SkillDescriptor struct {
+	ID          string      `json:"id"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+	InputSchema *JSONSchema `json:"input_schema,omitempty"`
+	Kind        string      `json:"kind,omitempty"`
+	SourceID    string      `json:"source_id,omitempty"`
+}
+
 // ToolDefinition describes a tool available to the model.
 type ToolDefinition struct {
 	Name        string
