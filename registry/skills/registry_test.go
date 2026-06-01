@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
 	registryskills "github.com/openbotstack/openbotstack-core/registry/skills"
 )
 
@@ -17,8 +17,8 @@ type testSkill struct {
 	id          string
 	name        string
 	description string
-	inputSchema *skills.JSONSchema
-	outputSchema *skills.JSONSchema
+	inputSchema *aitypes.JSONSchema
+	outputSchema *aitypes.JSONSchema
 	permissions []string
 	timeout     time.Duration
 	validateErr error // if non-nil, Validate() returns this error
@@ -27,8 +27,8 @@ type testSkill struct {
 func (s *testSkill) ID() string                         { return s.id }
 func (s *testSkill) Name() string                       { return s.name }
 func (s *testSkill) Description() string                { return s.description }
-func (s *testSkill) InputSchema() *skills.JSONSchema    { return s.inputSchema }
-func (s *testSkill) OutputSchema() *skills.JSONSchema   { return s.outputSchema }
+func (s *testSkill) InputSchema() *aitypes.JSONSchema    { return s.inputSchema }
+func (s *testSkill) OutputSchema() *aitypes.JSONSchema   { return s.outputSchema }
 func (s *testSkill) RequiredPermissions() []string      { return s.permissions }
 func (s *testSkill) Timeout() time.Duration             { return s.timeout }
 func (s *testSkill) Validate() error                    { return s.validateErr }
@@ -385,16 +385,16 @@ func TestSkillInterface_Compliance(t *testing.T) {
 }
 
 func TestSkillInterface_AllMethods(t *testing.T) {
-	inputSchema := &skills.JSONSchema{
+	inputSchema := &aitypes.JSONSchema{
 		Type: "object",
-		Properties: map[string]*skills.JSONSchema{
+		Properties: map[string]*aitypes.JSONSchema{
 			"query": {Type: "string"},
 		},
 		Required: []string{"query"},
 	}
-	outputSchema := &skills.JSONSchema{
+	outputSchema := &aitypes.JSONSchema{
 		Type: "object",
-		Properties: map[string]*skills.JSONSchema{
+		Properties: map[string]*aitypes.JSONSchema{
 			"result": {Type: "string"},
 		},
 	}

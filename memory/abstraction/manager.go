@@ -35,7 +35,7 @@ type MemoryManager interface {
 	RetrieveByTag(ctx context.Context, tags []string, limit int) ([]MemoryEntry, error)
 
 	// Forget removes a specific memory entry.
-	// Returns ErrMemoryNotFound if ID doesn't exist.
+	// Returns an error if the ID doesn't exist.
 	Forget(ctx context.Context, id string) error
 
 	// Summarize triggers compaction of memories.

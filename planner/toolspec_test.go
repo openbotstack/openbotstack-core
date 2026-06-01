@@ -5,13 +5,13 @@ import (
 	"testing"
 
 	"github.com/openbotstack/openbotstack-core/capability"
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 // --- SchemaToToolSpec: planner uses only ID/Name/Description ---
 
 func TestSchemaToToolSpec_BasicFields(t *testing.T) {
-	desc := skills.SkillDescriptor{
+	desc := aitypes.SkillDescriptor{
 		ID:          "core/summarize",
 		Name:        "Summarize",
 		Description: "Summarizes text",
@@ -29,13 +29,13 @@ func TestSchemaToToolSpec_BasicFields(t *testing.T) {
 }
 
 func TestSchemaToToolSpec_ExtractsParameters(t *testing.T) {
-	desc := skills.SkillDescriptor{
+	desc := aitypes.SkillDescriptor{
 		ID:          "core/search",
 		Name:        "Search",
 		Description: "Search documents",
-		InputSchema: &skills.JSONSchema{
+		InputSchema: &aitypes.JSONSchema{
 			Type: "object",
-			Properties: map[string]*skills.JSONSchema{
+			Properties: map[string]*aitypes.JSONSchema{
 				"query": {Type: "string"},
 				"limit": {Type: "integer"},
 			},
@@ -58,13 +58,13 @@ func TestSchemaToToolSpec_ExtractsParameters(t *testing.T) {
 }
 
 func TestSchemaToToolSpec_DescriptionAppendsToType(t *testing.T) {
-	desc := skills.SkillDescriptor{
+	desc := aitypes.SkillDescriptor{
 		ID:          "core/add",
 		Name:        "Add",
 		Description: "Add numbers",
-		InputSchema: &skills.JSONSchema{
+		InputSchema: &aitypes.JSONSchema{
 			Type: "object",
-			Properties: map[string]*skills.JSONSchema{
+			Properties: map[string]*aitypes.JSONSchema{
 				"a": {Type: "number", Description: "first operand"},
 				"b": {Type: "number", Description: "second operand"},
 			},
@@ -80,7 +80,7 @@ func TestSchemaToToolSpec_DescriptionAppendsToType(t *testing.T) {
 }
 
 func TestSchemaToToolSpec_NilSchema(t *testing.T) {
-	desc := skills.SkillDescriptor{
+	desc := aitypes.SkillDescriptor{
 		ID:          "core/hello",
 		Name:        "Hello",
 		Description: "Says hello",
@@ -96,7 +96,7 @@ func TestSchemaToToolSpec_NilSchema(t *testing.T) {
 }
 
 func TestSchemaToToolSpec_EmptyFields(t *testing.T) {
-	desc := skills.SkillDescriptor{}
+	desc := aitypes.SkillDescriptor{}
 	spec := SchemaToToolSpec(desc)
 	if spec.ID != "" {
 		t.Errorf("expected empty ID, got %q", spec.ID)
@@ -196,9 +196,9 @@ func TestCapabilityToToolSpec(t *testing.T) {
 		ID:          "mcp.server1.search",
 		Name:        "search",
 		Description: "Search for documents",
-		InputSchema: &skills.JSONSchema{
+		InputSchema: &aitypes.JSONSchema{
 			Type: "object",
-			Properties: map[string]*skills.JSONSchema{
+			Properties: map[string]*aitypes.JSONSchema{
 				"query": {Type: "string", Description: "search query"},
 				"limit": {Type: "integer"},
 			},

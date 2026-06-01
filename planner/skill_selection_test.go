@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/openbotstack/openbotstack-core/control/skills"
+	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 // --- Phase 4: Skill Selection Tests ---
@@ -161,7 +161,7 @@ func TestSkillSelection_MarkdownWrappedJSON(t *testing.T) {
 func TestSkillSelection_BuildPromptContainsToolSpecs(t *testing.T) {
 	p := NewLLMPlanner(nil, nil)
 
-	mockSkills := []skills.SkillDescriptor{
+	mockSkills := []aitypes.SkillDescriptor{
 		{ID: "math-add", Name: "Math Add", Description: "Add two numbers"},
 		{ID: "wordcount", Name: "Word Count", Description: "Count words in text"},
 		{ID: "sentiment", Name: "Sentiment", Description: "Analyze text sentiment"},
