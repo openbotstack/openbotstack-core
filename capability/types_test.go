@@ -14,7 +14,6 @@ func TestCapabilityKind_Values(t *testing.T) {
 		{CapabilityKindSkill, "skill"},
 		{CapabilityKindMCP, "mcp"},
 		{CapabilityKindNative, "native"},
-		{CapabilityKindExternal, "external"},
 	}
 	for _, tt := range tests {
 		if string(tt.kind) != tt.want {

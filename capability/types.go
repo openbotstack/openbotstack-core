@@ -10,8 +10,7 @@ type CapabilityKind string
 const (
 	CapabilityKindSkill    CapabilityKind = "skill"
 	CapabilityKindMCP      CapabilityKind = "mcp"
-	CapabilityKindNative   CapabilityKind = "native"
-	CapabilityKindExternal CapabilityKind = "external"
+	CapabilityKindNative CapabilityKind = "native"
 )
 
 // CapabilityDescriptor describes a discrete capability that can be presented

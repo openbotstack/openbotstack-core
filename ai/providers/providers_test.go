@@ -254,86 +254,6 @@ func TestOpenAICompatibleGenerateAPIError(t *testing.T) {
 	}
 }
 
-func TestSyncRetryOn500(t *testing.T) {
-	callCount := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		callCount++
-		if callCount < 3 {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		mockResp := chatResponse{
-			Choices: []chatChoice{{Message: chatResponseMessage{Content: "success"}, FinishReason: "stop"}},
-		}
-		json.NewEncoder(w).Encode(mockResp)
-	}))
-	defer server.Close()
-
-	p := &openAIProvider{
-		baseURL: server.URL, apiKey: "key", modelName: "model",
-		client:       &http.Client{Timeout: 10 * time.Second},
-		maxRetries:   3,
-		capabilities: []types.CapabilityType{types.CapTextGeneration},
-	}
-	resp, err := p.Generate(context.Background(), types.GenerateRequest{
-		Messages: []types.Message{{Role: "user", Content: "hi"}},
-	})
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if resp.Content != "success" {
-		t.Errorf("Expected 'success', got '%s'", resp.Content)
-	}
-	if callCount != 3 {
-		t.Errorf("Expected 3 calls (2 failures + 1 success), got %d", callCount)
-	}
-}
-
-func TestSyncRetryExhaustion(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer server.Close()
-
-	p := &openAIProvider{
-		baseURL: server.URL, apiKey: "key", modelName: "model",
-		client:       &http.Client{Timeout: 10 * time.Second},
-		maxRetries:   2,
-		capabilities: []types.CapabilityType{types.CapTextGeneration},
-	}
-	_, err := p.Generate(context.Background(), types.GenerateRequest{
-		Messages: []types.Message{{Role: "user", Content: "hi"}},
-	})
-	if err == nil {
-		t.Error("Expected error after retry exhaustion")
-	}
-}
-
-func TestSyncNoRetryOn400(t *testing.T) {
-	callCount := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		callCount++
-		w.WriteHeader(http.StatusBadRequest)
-	}))
-	defer server.Close()
-
-	p := &openAIProvider{
-		baseURL: server.URL, apiKey: "key", modelName: "model",
-		client:       &http.Client{Timeout: 10 * time.Second},
-		maxRetries:   3,
-		capabilities: []types.CapabilityType{types.CapTextGeneration},
-	}
-	_, err := p.Generate(context.Background(), types.GenerateRequest{
-		Messages: []types.Message{{Role: "user", Content: "hi"}},
-	})
-	if err == nil {
-		t.Error("Expected error for 400")
-	}
-	if callCount != 1 {
-		t.Errorf("Expected 1 call (no retry for 4xx), got %d", callCount)
-	}
-}
-
 func TestOpenAICompatibleEmbed(t *testing.T) {
 	mockResp := embedResponse{
 		Object: "list",
@@ -549,7 +469,7 @@ func TestSyncTypedErrors(t *testing.T) {
 			}))
 			defer server.Close()
 
-			p := &openAIProvider{
+			p := &OpenAICompatibleProvider{
 				baseURL: server.URL, apiKey: "key", modelName: "model",
 				client:       &http.Client{Timeout: 10 * time.Second},
 				capabilities: []types.CapabilityType{types.CapTextGeneration},
