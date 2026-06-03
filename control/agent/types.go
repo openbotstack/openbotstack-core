@@ -1,21 +1,7 @@
 package agent
 
 import (
-	"errors"
-	"fmt"
 	"github.com/openbotstack/openbotstack-core/execution"
-)
-
-// Common errors for the agent package.
-var (
-	// ErrNilPlan is returned when an execution plan is nil.
-	ErrNilPlan = errors.New("agent: execution plan is nil")
-
-	// ErrPlanningFailed is returned when the planner fails to produce a plan.
-	ErrPlanningFailed = errors.New("agent: planning failed")
-
-	// ErrNoSkillsAvailable is returned when no skills are registered.
-	ErrNoSkillsAvailable = errors.New("agent: no skills available for planning")
 )
 
 // MessageRequest represents input to the Agent.
@@ -38,22 +24,4 @@ type MessageResponse struct {
 	SkillUsed   string                   `json:"skill_used,omitempty"`
 	ExecutionID string                   `json:"execution_id,omitempty"`
 	Plan        *execution.ExecutionPlan `json:"plan,omitempty"`
-}
-
-// Message represents a single chat message in conversation history.
-type Message struct {
-	Role        string `json:"role"`
-	Content     string `json:"content"`
-	ExecutionID string `json:"execution_id,omitempty"`
-}
-
-// ValidatePlanForAgent validates that a plan has at least one step.
-func ValidatePlanForAgent(p *execution.ExecutionPlan) error {
-	if p == nil {
-		return fmt.Errorf("%w: plan is nil", ErrNilPlan)
-	}
-	if len(p.Steps) == 0 {
-		return fmt.Errorf("%w: plan has no steps", ErrNilPlan)
-	}
-	return nil
 }

@@ -5,7 +5,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/openbotstack/openbotstack-core/capability"
 	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
 )
 
@@ -23,20 +22,6 @@ type ToolSpec struct {
 
 // SchemaToToolSpec creates a lightweight ToolSpec from a SkillDescriptor.
 func SchemaToToolSpec(desc aitypes.SkillDescriptor) ToolSpec {
-	return descriptorToToolSpec(desc)
-}
-
-// CapabilityToToolSpec creates a ToolSpec from a CapabilityDescriptor.
-// Since CapabilityDescriptor is now a type alias for SkillDescriptor, this
-// delegates to the same implementation.
-func CapabilityToToolSpec(desc capability.CapabilityDescriptor) ToolSpec {
-	return descriptorToToolSpec(desc)
-}
-
-// descriptorToToolSpec is the canonical conversion from SkillDescriptor to ToolSpec.
-// Both SchemaToToolSpec and CapabilityToToolSpec delegate here, eliminating the
-// previous 80% code duplication.
-func descriptorToToolSpec(desc aitypes.SkillDescriptor) ToolSpec {
 	spec := ToolSpec{
 		ID:          desc.ID,
 		Name:        desc.Name,
@@ -59,6 +44,14 @@ func descriptorToToolSpec(desc aitypes.SkillDescriptor) ToolSpec {
 		spec.Required = desc.InputSchema.Required
 	}
 	return spec
+}
+
+// CapabilityToToolSpec creates a ToolSpec from a CapabilityDescriptor.
+// Since CapabilityDescriptor is a type alias for SkillDescriptor, this
+// delegates to SchemaToToolSpec.
+// Deprecated: use SchemaToToolSpec directly — CapabilityDescriptor == SkillDescriptor.
+func CapabilityToToolSpec(desc aitypes.SkillDescriptor) ToolSpec {
+	return SchemaToToolSpec(desc)
 }
 
 // FormatToolSpecs formats a slice of ToolSpecs as a compact string for LLM prompts.

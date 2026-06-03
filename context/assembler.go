@@ -1,14 +1,3 @@
-// Package context provides context assembly for OpenBotStack.
-//
-// The ContextAssembler builds the LLM prompt from:
-//   - AssistantProfile (persona, system prompt)
-//   - Memory (short-term and long-term)
-//   - Current request
-//
-// Seam justification: multiple assembly strategies exist or are planned:
-//   - RuntimeContextAssembler (keyword-based, current)
-//   - RAG-enhanced assembler (embedding retrieval, ADR-017)
-// A second adapter will validate this seam.
 package context
 
 import (
@@ -85,6 +74,8 @@ type UserRequest struct {
 //      the memory backend is unavailable (RelevantMemories will be empty).
 //   4. Messages ordering: memory system messages precede conversationHistory items.
 //   5. AvailableTools reflects only skills found in the registry; missing skills are skipped.
+//   6. AssembleWithMemories uses prefetched memories instead of calling RetrieveSimilar
+//      internally, preventing duplicate retrieval when the caller has already fetched memories.
 type ContextAssembler interface {
 	// Assemble builds the context from profile, memory, and request.
 	Assemble(
@@ -92,5 +83,16 @@ type ContextAssembler interface {
 		assistant AssistantContext,
 		request UserRequest,
 		conversationHistory []aitypes.Message,
+	) (*AssembledContext, error)
+
+	// AssembleWithMemories builds context using pre-fetched memories instead of
+	// calling RetrieveSimilar internally. This prevents duplicate retrieval when
+	// the caller (e.g., ConversationManager) has already fetched memories.
+	AssembleWithMemories(
+		ctx context.Context,
+		assistant AssistantContext,
+		request UserRequest,
+		conversationHistory []aitypes.Message,
+		prefetched []abstraction.MemoryEntry,
 	) (*AssembledContext, error)
 }

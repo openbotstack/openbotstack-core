@@ -1,12 +1,3 @@
-// Package memory provides abstract access to the agent's memory.
-//
-// "Memory" in OpenBotStack is:
-//   - Short-term: Current conversation context
-//   - Long-term: Vector-stored knowledge (pgvector abstraction)
-//   - Entity: Structured facts about known entities
-//
-// This package defines interfaces ONLY. The actual storage
-// implementation lives in openbotstack-runtime or external infrastructure.
 package abstraction
 
 import (

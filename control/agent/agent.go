@@ -2,9 +2,6 @@ package agent
 
 import (
 	"context"
-
-	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
-	"github.com/openbotstack/openbotstack-core/registry/skills"
 )
 
 // Agent orchestrates the planning and execution of skills.
@@ -23,15 +20,6 @@ type Agent interface {
 	HandleMessage(ctx context.Context, req MessageRequest) (*MessageResponse, error)
 }
 
-// SkillRegistry provides access to available skills.
-type SkillRegistry interface {
-	// List returns all registered skill IDs.
-	List() []string
-
-	// Get retrieves a skill by ID.
-	Get(id string) (skills.Skill, error)
-}
-
 // ExecutionMeta contains metadata for execution tracking.
 type ExecutionMeta struct {
 	TenantID    string
@@ -39,29 +27,4 @@ type ExecutionMeta struct {
 	SessionID   string
 	RequestID   string
 	AssistantID string
-}
-
-// MessagesToSkillMsgs converts agent.Message slice to ai/types.Message slice.
-// The aitypes.Message type includes a Name field for tool messages; conversion drops names.
-func MessagesToSkillMsgs(msgs []Message) []aitypes.Message {
-	result := make([]aitypes.Message, 0, len(msgs))
-	for _, m := range msgs {
-		result = append(result, aitypes.Message{
-			Role:    m.Role,
-			Content: m.Content,
-		})
-	}
-	return result
-}
-
-// SkillMsgsToMessages converts ai/types.Message slice to agent.Message slice.
-func SkillMsgsToMessages(msgs []aitypes.Message) []Message {
-	result := make([]Message, 0, len(msgs))
-	for _, m := range msgs {
-		result = append(result, Message{
-			Role:    m.Role,
-			Content: m.Content,
-		})
-	}
-	return result
 }

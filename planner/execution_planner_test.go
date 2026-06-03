@@ -10,7 +10,6 @@ import (
 
 	"github.com/openbotstack/openbotstack-core/ai/providers"
 	"github.com/openbotstack/openbotstack-core/ai/types"
-	"github.com/openbotstack/openbotstack-core/assistant"
 	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
 	"github.com/openbotstack/openbotstack-core/execution"
 )
@@ -280,7 +279,7 @@ func TestBuildPrompt_WithSoul(t *testing.T) {
 	prompt := p.buildPrompt(&PlannerContext{
 		AssistantID: "a1",
 		UserRequest: "summarize the report",
-		Soul: assistant.AssistantSoul{
+		Soul: AssistantSoul{
 			Personality:  "Friendly and precise",
 			Instructions: "Always be concise",
 		},
@@ -302,7 +301,7 @@ func TestBuildPrompt_WithMemoryContext(t *testing.T) {
 	prompt := p.buildPrompt(&PlannerContext{
 		AssistantID: "a1",
 		UserRequest: "what did we discuss?",
-		MemoryContext: []assistant.SearchResult{
+		MemoryContext: []SearchResult{
 			{Content: []byte("user likes Go"), Score: 0.9},
 			{Content: []byte("user prefers dark mode"), Score: 0.8},
 		},
@@ -429,7 +428,7 @@ func TestBuildPrompt_EmptySoulFields(t *testing.T) {
 	prompt := p.buildPrompt(&PlannerContext{
 		AssistantID: "a1",
 		UserRequest: "test",
-		Soul:        assistant.AssistantSoul{}, // all empty
+		Soul:        AssistantSoul{}, // all empty
 		Skills: []aitypes.SkillDescriptor{
 			{ID: "s1", Name: "S1", Description: "A skill"},
 		},

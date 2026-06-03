@@ -59,12 +59,5 @@ func (r *MemoryCapabilityRegistry) ListByKind(kind CapabilityKind) []CapabilityD
 }
 
 func capToDescriptor(c Capability) CapabilityDescriptor {
-	return CapabilityDescriptor{
-		ID:          c.ID(),
-		Name:        c.Name(),
-		Description: c.Description(),
-		InputSchema: c.InputSchema(),
-		Kind:        string(c.Kind()),
-		SourceID:    c.SourceID(),
-	}
+	return CapabilityDescriptor(CapabilityToDescriptor(c))
 }

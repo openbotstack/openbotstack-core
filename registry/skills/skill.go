@@ -107,3 +107,29 @@ func GetRiskLevel(s Skill) string {
 	}
 	return "info"
 }
+
+// DescriptorProvider is an optional interface that skills can implement
+// to produce their planner-facing descriptor directly, without field-by-field
+// copying through an adapter. This is the canonical way for Skill to become
+// a Capability — the adapter layer is bypassed entirely.
+type DescriptorProvider interface {
+	Descriptor() aitypes.SkillDescriptor
+}
+
+// GetDescriptor returns the planner-facing descriptor for a skill.
+// If the skill implements DescriptorProvider, that method is called.
+// Otherwise a default descriptor is built from the Skill's core fields
+// with Kind="skill" and SourceID=Skill.ID().
+func GetDescriptor(s Skill) aitypes.SkillDescriptor {
+	if dp, ok := s.(DescriptorProvider); ok {
+		return dp.Descriptor()
+	}
+	return aitypes.SkillDescriptor{
+		ID:          s.ID(),
+		Name:        s.Name(),
+		Description: s.Description(),
+		InputSchema: s.InputSchema(),
+		Kind:        "skill",
+		SourceID:    s.ID(),
+	}
+}

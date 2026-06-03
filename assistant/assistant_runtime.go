@@ -1,5 +1,7 @@
 package assistant
 
+import "github.com/openbotstack/openbotstack-core/planner"
+
 // AssistantRuntime represents the active, request-scoped state of an assistant.
 // It governs what the assistant can do and what data it can access.
 type AssistantRuntime struct {
@@ -7,7 +9,7 @@ type AssistantRuntime struct {
 	TenantID    string
 
 	// Soul defines the personality and behavioral instructions.
-	Soul AssistantSoul
+	Soul planner.AssistantSoul
 
 	// Skills available to this specific assistant instance.
 	Skills []string

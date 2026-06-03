@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/openbotstack/openbotstack-core/capability"
 	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
 )
 
@@ -192,7 +191,7 @@ func TestFormatToolSpecs_NoParamsSection(t *testing.T) {
 // --- CapabilityToToolSpec ---
 
 func TestCapabilityToToolSpec(t *testing.T) {
-	desc := capability.CapabilityDescriptor{
+	desc := aitypes.SkillDescriptor{
 		ID:          "mcp.server1.search",
 		Name:        "search",
 		Description: "Search for documents",
@@ -204,7 +203,7 @@ func TestCapabilityToToolSpec(t *testing.T) {
 			},
 			Required: []string{"query"},
 		},
-		Kind:     string(capability.CapabilityKindMCP),
+		Kind:     "mcp",
 		SourceID: "server1",
 	}
 
@@ -228,11 +227,11 @@ func TestCapabilityToToolSpec(t *testing.T) {
 }
 
 func TestCapabilityToToolSpec_NoSchema(t *testing.T) {
-	desc := capability.CapabilityDescriptor{
+	desc := aitypes.SkillDescriptor{
 		ID:          "mcp.server1.ping",
 		Name:        "ping",
 		Description: "Health check",
-		Kind:        string(capability.CapabilityKindMCP),
+		Kind:        "mcp",
 		SourceID:    "server1",
 	}
 

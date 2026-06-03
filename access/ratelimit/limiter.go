@@ -1,9 +1,3 @@
-// Package ratelimit provides hierarchical rate limiting for OpenBotStack.
-//
-// Rate limiting is applied at multiple levels:
-//   - Tenant: Hard limit for billing/cost control
-//   - User: Soft limit for fairness
-//   - Skill: Fine-grained control (V2)
 package ratelimit
 
 import (

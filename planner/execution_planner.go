@@ -52,7 +52,7 @@ func NewLLMPlanner(router providers.ModelRouter, limits *ExecutionLimits) *LLMPl
 // If the provider supports streaming, it uses streaming to allow progress feedback
 // during the LLM planning call. Otherwise falls back to synchronous Generate.
 func (p *LLMPlanner) Plan(ctx context.Context, pCtx *PlannerContext) (*execution.ExecutionPlan, error) {
-	if len(pCtx.Skills) == 0 && len(pCtx.Capabilities) == 0 {
+	if len(pCtx.Skills) == 0 {
 		return nil, ErrNoSkillsAvailable
 	}
 
@@ -155,14 +155,8 @@ func (p *LLMPlanner) buildPrompt(pCtx *PlannerContext) string {
 
 	sb.WriteString("\nAvailable skills/tools:\n")
 	var specs []ToolSpec
-	if len(pCtx.Capabilities) > 0 {
-		for _, cap := range pCtx.Capabilities {
-			specs = append(specs, CapabilityToToolSpec(cap))
-		}
-	} else {
-		for _, skill := range pCtx.Skills {
-			specs = append(specs, SchemaToToolSpec(skill))
-		}
+	for _, skill := range pCtx.Skills {
+		specs = append(specs, SchemaToToolSpec(skill))
 	}
 	sb.WriteString(FormatToolSpecs(specs))
 
