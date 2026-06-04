@@ -67,11 +67,11 @@ func anthropicMessagesStream(
 	var convMessages []anthropicMessage
 	for _, m := range req.Messages {
 		if m.Role == "system" {
-			systemParts = append(systemParts, m.Content)
+			systemParts = append(systemParts, types.FlattenToText(m.Contents))
 		} else {
 			convMessages = append(convMessages, anthropicMessage{
 				Role:    m.Role,
-				Content: m.Content,
+				Content: types.FlattenToText(m.Contents),
 			})
 		}
 	}

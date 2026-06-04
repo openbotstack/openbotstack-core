@@ -57,8 +57,8 @@ func TestAnthropicMessagesGenerate(t *testing.T) {
 	provider := NewClaudeProvider(server.URL, "test-api-key", "claude-3-opus-20240229")
 	resp, err := provider.Generate(context.Background(), types.GenerateRequest{
 		Messages: []types.Message{
-			{Role: "system", Content: "You are helpful."},
-			{Role: "user", Content: "Hello"},
+			{Role: "system", Contents: []types.ContentBlock{types.NewTextBlock("You are helpful.")}},
+			{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("Hello")}},
 		},
 		MaxTokens:   100,
 		Temperature: 0.7,
@@ -125,7 +125,7 @@ func TestAnthropicMessagesGenerateWithToolCalls(t *testing.T) {
 
 	provider := NewClaudeProvider(server.URL, "test-key", "claude-3-opus-20240229")
 	resp, err := provider.Generate(context.Background(), types.GenerateRequest{
-		Messages: []types.Message{{Role: "user", Content: "What's the weather?"}},
+		Messages: []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("What's the weather?")}}},
 		Tools: []types.ToolDefinition{
 			{Name: "get_weather", Description: "Get weather for a location"},
 		},
@@ -157,7 +157,7 @@ func TestAnthropicMessagesGenerateWithToolCalls(t *testing.T) {
 func TestAnthropicMessagesGenerateNoAPIKey(t *testing.T) {
 	provider := NewClaudeProvider("", "", "claude-3-opus-20240229")
 	_, err := provider.Generate(context.Background(), types.GenerateRequest{
-		Messages: []types.Message{{Role: "user", Content: "Hello"}},
+		Messages: []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("Hello")}}},
 	})
 	if err == nil {
 		t.Error("Expected error for empty API key, got nil")
@@ -178,7 +178,7 @@ func TestAnthropicMessagesGenerateAuthError(t *testing.T) {
 
 	provider := NewClaudeProvider(server.URL, "bad-key", "claude-3-opus-20240229")
 	_, err := provider.Generate(context.Background(), types.GenerateRequest{
-		Messages: []types.Message{{Role: "user", Content: "Hello"}},
+		Messages: []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("Hello")}}},
 	})
 	if err == nil {
 		t.Error("Expected error for 401 response")
@@ -193,7 +193,7 @@ func TestAnthropicMessagesGenerateRateLimit(t *testing.T) {
 
 	provider := NewClaudeProvider(server.URL, "key", "claude-3-opus-20240229")
 	_, err := provider.Generate(context.Background(), types.GenerateRequest{
-		Messages: []types.Message{{Role: "user", Content: "Hello"}},
+		Messages: []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("Hello")}}},
 	})
 	if err == nil {
 		t.Error("Expected error for rate limit")
@@ -231,7 +231,7 @@ func TestAnthropicStreamingText(t *testing.T) {
 	var sp StreamingModelProvider = provider
 
 	ch, err := sp.GenerateStream(context.Background(), types.GenerateRequest{
-		Messages: []types.Message{{Role: "user", Content: "Hello"}},
+		Messages: []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("Hello")}}},
 	})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -296,7 +296,7 @@ func TestAnthropicStreamingToolCalls(t *testing.T) {
 	var sp StreamingModelProvider = provider
 
 	ch, err := sp.GenerateStream(context.Background(), types.GenerateRequest{
-		Messages: []types.Message{{Role: "user", Content: "Weather?"}},
+		Messages: []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("Weather?")}}},
 	})
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -357,7 +357,7 @@ func TestAnthropicStreamingContextCancellation(t *testing.T) {
 	var sp StreamingModelProvider = provider
 
 	ch, _ := sp.GenerateStream(ctx, types.GenerateRequest{
-		Messages: []types.Message{{Role: "user", Content: "Hi"}},
+		Messages: []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("Hi")}}},
 	})
 
 	// Read one chunk to confirm streaming is working
@@ -391,7 +391,7 @@ func TestAnthropicStreamingServerErr(t *testing.T) {
 	var sp StreamingModelProvider = provider
 
 	_, err := sp.GenerateStream(context.Background(), types.GenerateRequest{
-		Messages: []types.Message{{Role: "user", Content: "Hi"}},
+		Messages: []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("Hi")}}},
 	})
 	if err == nil {
 		t.Error("Expected error for 500 response")
@@ -420,9 +420,9 @@ func TestAnthropicSystemMessageExtraction(t *testing.T) {
 	provider := NewClaudeProvider(server.URL, "key", "claude-3")
 	_, err := provider.Generate(context.Background(), types.GenerateRequest{
 		Messages: []types.Message{
-			{Role: "system", Content: "System prompt A"},
-			{Role: "system", Content: "System prompt B"},
-			{Role: "user", Content: "Hello"},
+			{Role: "system", Contents: []types.ContentBlock{types.NewTextBlock("System prompt A")}},
+			{Role: "system", Contents: []types.ContentBlock{types.NewTextBlock("System prompt B")}},
+			{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("Hello")}},
 		},
 	})
 	if err != nil {
@@ -456,7 +456,7 @@ func TestAnthropicToolDefinitionFormat(t *testing.T) {
 
 	provider := NewClaudeProvider(server.URL, "key", "claude-3")
 	_, err := provider.Generate(context.Background(), types.GenerateRequest{
-		Messages: []types.Message{{Role: "user", Content: "Test"}},
+		Messages: []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("Test")}}},
 		Tools: []types.ToolDefinition{
 			{
 				Name:        "search",
@@ -533,7 +533,7 @@ func TestAnthropicStreamingToolChoicePropagation(t *testing.T) {
 
 	toolChoice := types.ToolChoiceAuto
 	ch, err := sp.GenerateStream(context.Background(), types.GenerateRequest{
-		Messages:   []types.Message{{Role: "user", Content: "test"}},
+		Messages:   []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("test")}}},
 		ToolChoice: toolChoice,
 	})
 	if err != nil {
@@ -575,7 +575,7 @@ func TestAnthropicStreamingParallelToolCallsPropagation(t *testing.T) {
 
 	disabled := false
 	ch, err := sp.GenerateStream(context.Background(), types.GenerateRequest{
-		Messages:         []types.Message{{Role: "user", Content: "test"}},
+		Messages:         []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("test")}}},
 		ParallelToolCalls: &disabled,
 	})
 	if err != nil {

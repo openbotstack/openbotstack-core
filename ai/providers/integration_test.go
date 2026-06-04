@@ -43,7 +43,7 @@ func TestIntegration_OpenAICompatible_Sync(t *testing.T) {
 	defer cancel()
 
 	resp, err := provider.Generate(ctx, types.GenerateRequest{
-		Messages:    []types.Message{{Role: "user", Content: "Say hello in one word."}},
+		Messages:    []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("Say hello in one word.")}}},
 		MaxTokens:   10,
 		Temperature: 0.1,
 	})
@@ -85,7 +85,7 @@ func TestIntegration_OpenAICompatible_Stream(t *testing.T) {
 	defer cancel()
 
 	ch, err := sp.GenerateStream(ctx, types.GenerateRequest{
-		Messages:    []types.Message{{Role: "user", Content: "Count from 1 to 5."}},
+		Messages:    []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("Count from 1 to 5.")}}},
 		MaxTokens:   50,
 		Temperature: 0.1,
 	})

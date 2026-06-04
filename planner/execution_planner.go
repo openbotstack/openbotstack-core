@@ -60,8 +60,8 @@ func (p *LLMPlanner) Plan(ctx context.Context, pCtx *PlannerContext) (*execution
 
 	mReq := types.GenerateRequest{
 		Messages: []types.Message{
-			{Role: "system", Content: pCtx.Soul.SystemPrompt},
-			{Role: "user", Content: prompt},
+			{Role: "system", Contents: []types.ContentBlock{types.NewTextBlock(pCtx.Soul.SystemPrompt)}},
+			{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock(prompt)}},
 		},
 		MaxTokens: 8192,
 	}

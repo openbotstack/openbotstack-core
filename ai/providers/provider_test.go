@@ -74,7 +74,7 @@ func TestModelProviderInterface(t *testing.T) {
 func TestGenerateRequest(t *testing.T) {
 	req := types.GenerateRequest{
 		Messages: []types.Message{
-			{Role: "user", Content: "Hello"},
+			{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("Hello")}},
 		},
 		MaxTokens:   100,
 		Temperature: 0.7,

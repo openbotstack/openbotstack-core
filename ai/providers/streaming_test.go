@@ -26,7 +26,7 @@ func TestStreamingMultipleChunks(t *testing.T) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	ch, err := openAICompatibleStream(
 		context.Background(), client, server.URL, "key", "model", nil,
-		types.GenerateRequest{Messages: []types.Message{{Role: "user", Content: "hi"}}},
+		types.GenerateRequest{Messages: []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("hi")}}}},
 		0,
 	)
 	if err != nil {
@@ -71,7 +71,7 @@ func TestStreamingSingleChunk(t *testing.T) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	ch, _ := openAICompatibleStream(
 		context.Background(), client, server.URL, "key", "model", nil,
-		types.GenerateRequest{Messages: []types.Message{{Role: "user", Content: "hi"}}},
+		types.GenerateRequest{Messages: []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("hi")}}}},
 		0,
 	)
 
@@ -101,7 +101,7 @@ func TestStreamingMalformedJSON(t *testing.T) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	ch, _ := openAICompatibleStream(
 		context.Background(), client, server.URL, "key", "model", nil,
-		types.GenerateRequest{Messages: []types.Message{{Role: "user", Content: "hi"}}},
+		types.GenerateRequest{Messages: []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("hi")}}}},
 		0,
 	)
 
@@ -142,7 +142,7 @@ func TestStreamingContextCancellation(t *testing.T) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	ch, _ := openAICompatibleStream(
 		ctx, client, server.URL, "key", "model", nil,
-		types.GenerateRequest{Messages: []types.Message{{Role: "user", Content: "hi"}}},
+		types.GenerateRequest{Messages: []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("hi")}}}},
 		0,
 	)
 
@@ -174,7 +174,7 @@ func TestStreamingEmptyLines(t *testing.T) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	ch, _ := openAICompatibleStream(
 		context.Background(), client, server.URL, "key", "model", nil,
-		types.GenerateRequest{Messages: []types.Message{{Role: "user", Content: "hi"}}},
+		types.GenerateRequest{Messages: []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("hi")}}}},
 		0,
 	)
 
@@ -206,7 +206,7 @@ func TestStreamingToolCallAccumulation(t *testing.T) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	ch, err := openAICompatibleStream(
 		context.Background(), client, server.URL, "key", "model", nil,
-		types.GenerateRequest{Messages: []types.Message{{Role: "user", Content: "weather?"}}},
+		types.GenerateRequest{Messages: []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("weather?")}}}},
 		0,
 	)
 	if err != nil {

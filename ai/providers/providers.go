@@ -41,8 +41,57 @@ type chatRequest struct {
 
 type chatMessage struct {
 	Role    string `json:"role"`
-	Content string `json:"content"`
+	Content any    `json:"content"`
 	Name    string `json:"name,omitempty"`
+}
+
+// openAIContentBlock represents a single content part in a multimodal message.
+type openAIContentBlock struct {
+	Type     string          `json:"type"`
+	Text     string          `json:"text,omitempty"`
+	ImageURL *openAIImageURL `json:"image_url,omitempty"`
+}
+
+type openAIImageURL struct {
+	URL string `json:"url"`
+}
+
+// contentsToOpenAI converts ContentBlocks to OpenAI content format.
+// Single text block → plain string (backward compatible).
+// Multimodal → array of content blocks.
+func contentsToOpenAI(contents []types.ContentBlock) any {
+	if len(contents) == 0 {
+		return nil
+	}
+	if len(contents) == 1 && contents[0].Type == "text" {
+		return contents[0].Text
+	}
+	blocks := make([]openAIContentBlock, 0, len(contents))
+	for _, c := range contents {
+		switch c.Type {
+		case "text":
+			blocks = append(blocks, openAIContentBlock{Type: "text", Text: c.Text})
+		case "image":
+			blocks = append(blocks, openAIContentBlock{
+				Type:     "image_url",
+				ImageURL: &openAIImageURL{URL: c.ImageURL},
+			})
+		}
+	}
+	return blocks
+}
+
+// buildOpenAIMessages converts GenerateRequest messages to OpenAI chat messages.
+func buildOpenAIMessages(req types.GenerateRequest) []chatMessage {
+	messages := make([]chatMessage, 0, len(req.Messages))
+	for _, m := range req.Messages {
+		messages = append(messages, chatMessage{
+			Role:    m.Role,
+			Content: contentsToOpenAI(m.Contents),
+			Name:    m.Name,
+		})
+	}
+	return messages
 }
 
 type chatTool struct {
@@ -134,14 +183,7 @@ func openAICompatibleGenerate(
 	maxRetries int,
 ) (*types.GenerateResponse, error) {
 	// Build messages
-	messages := make([]chatMessage, 0, len(req.Messages))
-	for _, m := range req.Messages {
-		messages = append(messages, chatMessage{
-			Role:    m.Role,
-			Content: m.Content,
-			Name:    m.Name,
-		})
-	}
+	messages := buildOpenAIMessages(req)
 
 	// Build tools
 	var tools []chatTool

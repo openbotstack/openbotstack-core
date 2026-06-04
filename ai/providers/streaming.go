@@ -68,10 +68,7 @@ func openAICompatibleStream(
 	maxRetries int,
 ) (<-chan types.StreamChunk, error) {
 	// Build request body
-	messages := make([]chatMessage, 0, len(req.Messages))
-	for _, m := range req.Messages {
-		messages = append(messages, chatMessage{Role: m.Role, Content: m.Content, Name: m.Name})
-	}
+	messages := buildOpenAIMessages(req)
 	var tools []chatTool
 	for _, t := range req.Tools {
 		tools = append(tools, chatTool{

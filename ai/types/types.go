@@ -62,10 +62,10 @@ type ToolChoiceSpecific struct {
 
 // Message represents a single message in the conversation.
 type Message struct {
-	Role        string `json:"role"`                   // "system", "user", "assistant", "tool"
-	Content     string `json:"content"`                // message body
-	Name        string `json:"name,omitempty"`          // for tool messages
-	ExecutionID string `json:"execution_id,omitempty"` // execution ID for reasoning visualization (assistant messages only)
+	Role        string         `json:"role"`                   // "system", "user", "assistant", "tool"
+	Contents    []ContentBlock `json:"contents"`               // multimodal content blocks
+	Name        string         `json:"name,omitempty"`          // for tool messages
+	ExecutionID string         `json:"execution_id,omitempty"` // execution ID for reasoning visualization (assistant messages only)
 }
 
 // GenerateRequest is the input to a model generation call.

@@ -83,7 +83,7 @@ func TestSiliconFlowProviderID(t *testing.T) {
 func TestProviderGenerateNoAPIKey(t *testing.T) {
 	provider := NewOpenAIProvider("", "", "gpt-4o")
 	_, err := provider.Generate(context.Background(), types.GenerateRequest{
-		Messages: []types.Message{{Role: "user", Content: "Hello"}},
+		Messages: []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("Hello")}}},
 	})
 	if err == nil {
 		t.Error("Expected error for empty API key, got nil")
@@ -140,8 +140,8 @@ func TestOpenAICompatibleGenerate(t *testing.T) {
 
 	req := types.GenerateRequest{
 		Messages: []types.Message{
-			{Role: "system", Content: "You are helpful."},
-			{Role: "user", Content: "Hello"},
+			{Role: "system", Contents: []types.ContentBlock{types.NewTextBlock("You are helpful.")}},
+			{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("Hello")}},
 		},
 		MaxTokens:   100,
 		Temperature: 0.7,
@@ -209,7 +209,7 @@ func TestOpenAICompatibleGenerateWithToolCalls(t *testing.T) {
 
 	provider := NewOpenAIProvider(server.URL, "test-key", "gpt-4o")
 	resp, err := provider.Generate(context.Background(), types.GenerateRequest{
-		Messages: []types.Message{{Role: "user", Content: "What's the weather?"}},
+		Messages: []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("What's the weather?")}}},
 		Tools: []types.ToolDefinition{
 			{Name: "get_weather", Description: "Get weather for a location"},
 		},
@@ -247,7 +247,7 @@ func TestOpenAICompatibleGenerateAPIError(t *testing.T) {
 
 	provider := NewOpenAIProvider(server.URL, "bad-key", "gpt-4o")
 	_, err := provider.Generate(context.Background(), types.GenerateRequest{
-		Messages: []types.Message{{Role: "user", Content: "Hello"}},
+		Messages: []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("Hello")}}},
 	})
 	if err == nil {
 		t.Error("Expected error for 401 response, got nil")
@@ -475,7 +475,7 @@ func TestSyncTypedErrors(t *testing.T) {
 				capabilities: []types.CapabilityType{types.CapTextGeneration},
 			}
 			_, err := p.Generate(context.Background(), types.GenerateRequest{
-				Messages: []types.Message{{Role: "user", Content: "hi"}},
+				Messages: []types.Message{{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock("hi")}}},
 			})
 			if err == nil {
 				t.Fatal("Expected error")
