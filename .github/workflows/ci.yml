@@ -24,4 +24,4 @@ jobs:
           version: v2.11.1
 
       - name: Run Tests
-        run: make test-v
+        run: make test-verbose
