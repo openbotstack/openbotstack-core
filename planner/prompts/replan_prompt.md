@@ -22,6 +22,13 @@ Personality: {{.Personality}}
 Specific Instructions:
 {{.Instructions}}
 {{- end}}
+{{- if .TurnResults}}
+
+Previous Turn Results:
+{{range .TurnResults}}
+- [{{.StepType}}: {{.StepName}}] {{if .Success}}OK{{else}}FAILED{{end}}{{if .Summary}}: {{.Summary}}{{end}}{{if .Error}}: {{.Error}}{{end}}
+{{- end}}
+{{- end}}
 {{- if .MemoryContext}}
 
 Relevant Memory Context:

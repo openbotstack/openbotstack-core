@@ -2,6 +2,7 @@ package planner
 
 import (
 	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
+	"github.com/openbotstack/openbotstack-core/execution"
 )
 
 // PlannerContext contains the unified state for generating an execution plan.
@@ -21,4 +22,8 @@ type PlannerContext struct {
 	// message construction. Nil/empty = no history (backward compatible).
 	// Bounded by maxHistoryMessages (default 50) at load time.
 	ConversationHistory []aitypes.Message
+	// TurnResults carries structured tool execution results from previous
+	// reasoning turns. Used by TurnPlanner to replace legacy XML <observation>
+	// injection. Nil/empty = first turn or no previous results.
+	TurnResults []execution.TurnToolResult
 }

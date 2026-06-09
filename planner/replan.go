@@ -147,6 +147,17 @@ func (p *LLMPlanner) buildReplanPrompt(rCtx *ReplanContext) string {
 		memContext = append(memContext, string(mem.Content))
 	}
 
+	turnResults := make([]prompts.TurnResultData, len(rCtx.PlannerContext.TurnResults))
+	for i, tr := range rCtx.PlannerContext.TurnResults {
+		turnResults[i] = prompts.TurnResultData{
+			StepName: tr.StepName,
+			StepType: tr.StepType,
+			Success:  tr.Success,
+			Summary:  tr.Summary,
+			Error:    tr.Error,
+		}
+	}
+
 	data := prompts.ReplanData{
 		OriginalSteps:   steps,
 		FailedStepType:  string(rCtx.FailedStep.Type),
@@ -157,6 +168,7 @@ func (p *LLMPlanner) buildReplanPrompt(rCtx *ReplanContext) string {
 		Personality:     rCtx.PlannerContext.Soul.Personality,
 		Instructions:    rCtx.PlannerContext.Soul.Instructions,
 		MemoryContext:   memContext,
+		TurnResults:     turnResults,
 		Skills:          FormatToolSpecs(specs),
 		UserRequest:     escapeXML(rCtx.PlannerContext.UserRequest),
 	}

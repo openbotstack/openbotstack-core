@@ -145,10 +145,23 @@ func (p *LLMPlanner) buildPrompt(pCtx *PlannerContext) string {
 		memContext = append(memContext, string(mem.Content))
 	}
 
+	// Format structured turn results for the template.
+	turnResults := make([]prompts.TurnResultData, len(pCtx.TurnResults))
+	for i, tr := range pCtx.TurnResults {
+		turnResults[i] = prompts.TurnResultData{
+			StepName: tr.StepName,
+			StepType: tr.StepType,
+			Success:  tr.Success,
+			Summary:  tr.Summary,
+			Error:    tr.Error,
+		}
+	}
+
 	data := prompts.PlanData{
 		Personality:   pCtx.Soul.Personality,
 		Instructions:  pCtx.Soul.Instructions,
 		MemoryContext: memContext,
+		TurnResults:   turnResults,
 		Skills:        FormatToolSpecs(specs),
 		UserRequest:   escapeXML(pCtx.UserRequest),
 	}

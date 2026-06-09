@@ -26,11 +26,21 @@ func init() {
 	ReplanTemplate = template.Must(template.New("replan").Funcs(funcMap).Parse(replanPromptRaw))
 }
 
+// TurnResultData is a template-friendly representation of a tool/skill execution result.
+type TurnResultData struct {
+	StepName string
+	StepType string // "tool" or "skill"
+	Success  bool
+	Summary  string
+	Error    string
+}
+
 // PlanData is the template data for plan prompts.
 type PlanData struct {
 	Personality   string
 	Instructions  string
 	MemoryContext []string
+	TurnResults   []TurnResultData // structured results from previous turns
 	Skills        string
 	UserRequest   string
 }
@@ -53,6 +63,7 @@ type ReplanData struct {
 	Personality     string
 	Instructions    string
 	MemoryContext   []string
+	TurnResults     []TurnResultData // structured results from previous turns
 	Skills          string
 	UserRequest     string
 }
