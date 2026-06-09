@@ -97,6 +97,13 @@ func (s *ExecutionStep) CoerceStringNumbers() int {
 // ExecutionPlan specifies a sequence of steps to achieve a goal.
 // Once validated and frozen, the plan is immutable.
 type ExecutionPlan struct {
+	// ID is auto-generated during Validate() if empty.
+	// Used for plan lineage tracking in replanning.
+	ID string `json:"id,omitempty"`
+
+	// ParentID references the plan this one replaces (set during replanning).
+	ParentID string `json:"parent_id,omitempty"`
+
 	AssistantID string          `json:"assistant_id"`
 	Steps       []ExecutionStep `json:"steps"`
 	Reasoning   string          `json:"reasoning,omitempty"`
@@ -119,6 +126,12 @@ func (p *ExecutionPlan) Validate() error {
 	if len(p.Steps) == 0 {
 		return fmt.Errorf("plan must have at least one step")
 	}
+
+	// Auto-generate plan ID if empty.
+	if p.ID == "" {
+		p.ID = uuid.NewString()
+	}
+
 	seen := make(map[string]int, len(p.Steps))
 	for i := range p.Steps {
 		step := &p.Steps[i]

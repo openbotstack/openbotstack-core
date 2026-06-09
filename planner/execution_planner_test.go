@@ -843,3 +843,286 @@ func TestPlan_ValidationFailsTooManySteps(t *testing.T) {
 		t.Errorf("expected 'validation failed', got: %v", err)
 	}
 }
+
+// capturingProvider captures the GenerateRequest for inspection.
+type capturingProvider struct {
+	response *aitypes.GenerateResponse
+	captured *aitypes.GenerateRequest
+}
+
+func (c *capturingProvider) ID() string                            { return "capture" }
+func (c *capturingProvider) Capabilities() []aitypes.CapabilityType {
+	return []aitypes.CapabilityType{aitypes.CapTextGeneration}
+}
+func (c *capturingProvider) Generate(_ context.Context, req aitypes.GenerateRequest) (*aitypes.GenerateResponse, error) {
+	c.captured = &req
+	return c.response, nil
+}
+func (c *capturingProvider) Embed(_ context.Context, _ []string) ([][]float32, error) {
+	return nil, nil
+}
+
+func textContent(t *testing.T, m aitypes.Message) string {
+	t.Helper()
+	for _, c := range m.Contents {
+		if c.Type == "text" {
+			return c.Text
+		}
+	}
+	return ""
+}
+
+func TestPlan_ConversationHistoryInjected(t *testing.T) {
+	history := []aitypes.Message{
+		{Role: "user", Contents: []aitypes.ContentBlock{aitypes.NewTextBlock("previous question")}},
+		{Role: "assistant", Contents: []aitypes.ContentBlock{aitypes.NewTextBlock("previous answer")}},
+	}
+
+	planJSON := `{"assistant_id":"a1","steps":[{"type":"llm","name":"respond","arguments":{"prompt":"summary"}}]}`
+	cp := &capturingProvider{
+		response: &aitypes.GenerateResponse{Content: planJSON},
+	}
+
+	router := &mockRouter{provider: cp}
+	p := NewLLMPlanner(router, nil)
+
+	_, err := p.Plan(context.Background(), &PlannerContext{
+		AssistantID:         "a1",
+		Skills:              []aitypes.SkillDescriptor{{ID: "s1", Name: "S1", Description: "A skill"}},
+		UserRequest:         "what did we discuss?",
+		Soul:                AssistantSoul{SystemPrompt: "you are helpful"},
+		ConversationHistory: history,
+	})
+	if err != nil {
+		t.Fatalf("Plan failed: %v", err)
+	}
+
+	msgs := cp.captured.Messages
+	if len(msgs) != 4 {
+		t.Fatalf("expected 4 messages (system + 2 history + user), got %d", len(msgs))
+	}
+	if msgs[0].Role != "system" {
+		t.Errorf("msg[0]: expected system, got %s", msgs[0].Role)
+	}
+	if msgs[1].Role != "user" || textContent(t, msgs[1]) != "previous question" {
+		t.Errorf("msg[1]: expected history user, got role=%s content=%s", msgs[1].Role, textContent(t, msgs[1]))
+	}
+	if msgs[2].Role != "assistant" || textContent(t, msgs[2]) != "previous answer" {
+		t.Errorf("msg[2]: expected history assistant, got role=%s content=%s", msgs[2].Role, textContent(t, msgs[2]))
+	}
+	if msgs[3].Role != "user" {
+		t.Errorf("msg[3]: expected user, got %s", msgs[3].Role)
+	}
+}
+
+func TestPlan_ConversationHistoryFiltersSystemRole(t *testing.T) {
+	history := []aitypes.Message{
+		{Role: "system", Contents: []aitypes.ContentBlock{aitypes.NewTextBlock("old system prompt")}},
+		{Role: "user", Contents: []aitypes.ContentBlock{aitypes.NewTextBlock("hello")}},
+	}
+
+	planJSON := `{"assistant_id":"a1","steps":[{"type":"llm","name":"respond","arguments":{"prompt":"hi"}}]}`
+	cp := &capturingProvider{
+		response: &aitypes.GenerateResponse{Content: planJSON},
+	}
+
+	router := &mockRouter{provider: cp}
+	p := NewLLMPlanner(router, nil)
+
+	_, err := p.Plan(context.Background(), &PlannerContext{
+		AssistantID:         "a1",
+		Skills:              []aitypes.SkillDescriptor{{ID: "s1", Name: "S1", Description: "A skill"}},
+		Soul:                AssistantSoul{SystemPrompt: "current system prompt"},
+		ConversationHistory: history,
+	})
+	if err != nil {
+		t.Fatalf("Plan failed: %v", err)
+	}
+
+	msgs := cp.captured.Messages
+	if len(msgs) != 3 {
+		t.Fatalf("expected 3 messages (system + filtered history user + user), got %d", len(msgs))
+	}
+	if msgs[0].Role != "system" {
+		t.Errorf("msg[0]: expected system, got %s", msgs[0].Role)
+	}
+	if msgs[1].Role != "user" || textContent(t, msgs[1]) != "hello" {
+		t.Errorf("msg[1]: expected history user 'hello', got role=%s content=%s", msgs[1].Role, textContent(t, msgs[1]))
+	}
+	if msgs[2].Role != "user" {
+		t.Errorf("msg[2]: expected current user, got %s", msgs[2].Role)
+	}
+}
+
+func TestPlan_NilHistory_SameBehavior(t *testing.T) {
+	planJSON := `{"assistant_id":"a1","steps":[{"type":"llm","name":"respond","arguments":{"prompt":"ok"}}]}`
+	cp := &capturingProvider{
+		response: &aitypes.GenerateResponse{Content: planJSON},
+	}
+
+	router := &mockRouter{provider: cp}
+	p := NewLLMPlanner(router, nil)
+
+	_, err := p.Plan(context.Background(), &PlannerContext{
+		AssistantID: "a1",
+		Skills:      []aitypes.SkillDescriptor{{ID: "s1", Name: "S1", Description: "A skill"}},
+		Soul:        AssistantSoul{SystemPrompt: "prompt"},
+	})
+	if err != nil {
+		t.Fatalf("Plan failed: %v", err)
+	}
+
+	msgs := cp.captured.Messages
+	if len(msgs) != 2 {
+		t.Fatalf("expected 2 messages (no history), got %d", len(msgs))
+	}
+}
+
+func TestReplan_ConversationHistoryInjected(t *testing.T) {
+	history := []aitypes.Message{
+		{Role: "user", Contents: []aitypes.ContentBlock{aitypes.NewTextBlock("what is 2+2?")}},
+		{Role: "assistant", Contents: []aitypes.ContentBlock{aitypes.NewTextBlock("4")}},
+	}
+
+	planJSON := `{"assistant_id":"a1","steps":[{"type":"skill","name":"retry","arguments":{}}]}`
+	cp := &capturingProvider{
+		response: &aitypes.GenerateResponse{Content: planJSON},
+	}
+
+	router := &mockRouter{provider: cp}
+	p := NewLLMPlanner(router, nil)
+
+	origPlan := &execution.ExecutionPlan{
+		AssistantID: "a1",
+		Steps:       []execution.ExecutionStep{{Type: execution.StepTypeSkill, Name: "step1"}},
+	}
+	if err := origPlan.Validate(); err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+
+	rCtx := &ReplanContext{
+		OriginalPlan: origPlan,
+		FailedStep:   execution.ExecutionStep{Name: "step1", StepID: "s1"},
+		Trigger:      ReplanTriggerToolFailure,
+		PlannerContext: &PlannerContext{
+			AssistantID:         "a1",
+			Skills:              []aitypes.SkillDescriptor{{ID: "s1", Name: "S1", Description: "A skill"}},
+			Soul:                AssistantSoul{SystemPrompt: "you are helpful"},
+			ConversationHistory: history,
+		},
+	}
+
+	_, err := p.Replan(context.Background(), rCtx)
+	if err != nil {
+		t.Fatalf("Replan failed: %v", err)
+	}
+
+	msgs := cp.captured.Messages
+	// Expected: [system, history_user, history_assistant, user(replan prompt)]
+	if len(msgs) != 4 {
+		t.Fatalf("expected 4 messages (system + 2 history + user), got %d", len(msgs))
+	}
+	if msgs[0].Role != "system" {
+		t.Errorf("msg[0]: expected system, got %s", msgs[0].Role)
+	}
+	if msgs[1].Role != "user" || textContent(t, msgs[1]) != "what is 2+2?" {
+		t.Errorf("msg[1]: expected history user, got role=%s content=%s", msgs[1].Role, textContent(t, msgs[1]))
+	}
+	if msgs[2].Role != "assistant" || textContent(t, msgs[2]) != "4" {
+		t.Errorf("msg[2]: expected history assistant, got role=%s content=%s", msgs[2].Role, textContent(t, msgs[2]))
+	}
+	if msgs[3].Role != "user" {
+		t.Errorf("msg[3]: expected replan user prompt, got %s", msgs[3].Role)
+	}
+}
+
+func TestReplan_ConversationHistoryFiltersSystemRole(t *testing.T) {
+	history := []aitypes.Message{
+		{Role: "system", Contents: []aitypes.ContentBlock{aitypes.NewTextBlock("old system prompt")}},
+		{Role: "user", Contents: []aitypes.ContentBlock{aitypes.NewTextBlock("hello")}},
+	}
+
+	planJSON := `{"assistant_id":"a1","steps":[{"type":"skill","name":"retry","arguments":{}}]}`
+	cp := &capturingProvider{
+		response: &aitypes.GenerateResponse{Content: planJSON},
+	}
+
+	router := &mockRouter{provider: cp}
+	p := NewLLMPlanner(router, nil)
+
+	origPlan := &execution.ExecutionPlan{
+		AssistantID: "a1",
+		Steps:       []execution.ExecutionStep{{Type: execution.StepTypeSkill, Name: "step1"}},
+	}
+	if err := origPlan.Validate(); err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+
+	rCtx := &ReplanContext{
+		OriginalPlan: origPlan,
+		FailedStep:   execution.ExecutionStep{Name: "step1", StepID: "s1"},
+		Trigger:      ReplanTriggerToolFailure,
+		PlannerContext: &PlannerContext{
+			AssistantID:         "a1",
+			Skills:              []aitypes.SkillDescriptor{{ID: "s1", Name: "S1", Description: "A skill"}},
+			Soul:                AssistantSoul{SystemPrompt: "current prompt"},
+			ConversationHistory: history,
+		},
+	}
+
+	_, err := p.Replan(context.Background(), rCtx)
+	if err != nil {
+		t.Fatalf("Replan failed: %v", err)
+	}
+
+	msgs := cp.captured.Messages
+	// system from history should be filtered: [system, user(history), user(replan)]
+	if len(msgs) != 3 {
+		t.Fatalf("expected 3 messages (system + filtered history user + replan user), got %d", len(msgs))
+	}
+	if msgs[0].Role != "system" {
+		t.Errorf("msg[0]: expected system, got %s", msgs[0].Role)
+	}
+	if msgs[1].Role != "user" {
+		t.Errorf("msg[1]: expected history user, got %s", msgs[1].Role)
+	}
+}
+
+func TestReplan_NilHistory_SameBehavior(t *testing.T) {
+	planJSON := `{"assistant_id":"a1","steps":[{"type":"skill","name":"retry","arguments":{}}]}`
+	cp := &capturingProvider{
+		response: &aitypes.GenerateResponse{Content: planJSON},
+	}
+
+	router := &mockRouter{provider: cp}
+	p := NewLLMPlanner(router, nil)
+
+	origPlan := &execution.ExecutionPlan{
+		AssistantID: "a1",
+		Steps:       []execution.ExecutionStep{{Type: execution.StepTypeSkill, Name: "step1"}},
+	}
+	if err := origPlan.Validate(); err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+
+	rCtx := &ReplanContext{
+		OriginalPlan: origPlan,
+		FailedStep:   execution.ExecutionStep{Name: "step1", StepID: "s1"},
+		Trigger:      ReplanTriggerToolFailure,
+		PlannerContext: &PlannerContext{
+			AssistantID: "a1",
+			Skills:      []aitypes.SkillDescriptor{{ID: "s1", Name: "S1", Description: "A skill"}},
+			Soul:        AssistantSoul{SystemPrompt: "prompt"},
+		},
+	}
+
+	_, err := p.Replan(context.Background(), rCtx)
+	if err != nil {
+		t.Fatalf("Replan failed: %v", err)
+	}
+
+	msgs := cp.captured.Messages
+	if len(msgs) != 2 {
+		t.Fatalf("expected 2 messages (no history), got %d", len(msgs))
+	}
+}

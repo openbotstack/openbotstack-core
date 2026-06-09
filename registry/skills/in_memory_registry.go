@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"sync"
 )
 
@@ -55,12 +56,13 @@ func (r *InMemoryRegistry) Get(id string) (Skill, error) {
 	return s, nil
 }
 
-// List returns all registered skill IDs.
+// List returns all registered skill IDs in sorted order.
 func (r *InMemoryRegistry) List() []string {
 	ids := make([]string, 0, r.store.Len())
 	r.store.ForEach(func(id string, _ Skill) {
 		ids = append(ids, id)
 	})
+	sort.Strings(ids)
 	return ids
 }
 

@@ -53,6 +53,9 @@ type ExecutionContext struct {
 	// plannerCtx holds the PlannerContext for LLM steps.
 	// Set explicitly by PlanAndRun, retrieved by the harness during LLM step execution.
 	// Replaces context.Value threading — the dependency is now visible.
+	// NOTE: Typed as any due to circular dependency (planner imports execution for
+	// plan types). Consumers type-assert to *planner.PlannerContext and should
+	// log a warning on type mismatch rather than silently accepting nil.
 	plannerCtx any
 
 	// State (guarded by mutex)
@@ -87,16 +90,20 @@ func NewExecutionContext(ctx context.Context, reqID, asstID, sessionID, tenantID
 func (ec *ExecutionContext) AddResult(res StepResult) {
 	ec.mu.Lock()
 	defer ec.mu.Unlock()
-	
+
 	ec.results = append(ec.results, res)
 }
 
 // SetPlannerContext stores the planner context for LLM step execution.
+// Accepts any type due to circular dependency between execution and planner packages.
+// The value should always be *planner.PlannerContext.
 func (ec *ExecutionContext) SetPlannerContext(pCtx any) {
 	ec.plannerCtx = pCtx
 }
 
 // PlannerContext retrieves the stored planner context. Returns nil if not set.
+// The caller should type-assert to *planner.PlannerContext and log a warning
+// on type mismatch rather than silently accepting nil.
 func (ec *ExecutionContext) PlannerContext() any {
 	return ec.plannerCtx
 }
@@ -105,7 +112,7 @@ func (ec *ExecutionContext) PlannerContext() any {
 func (ec *ExecutionContext) Results() []StepResult {
 	ec.mu.RLock()
 	defer ec.mu.RUnlock()
-	
+
 	res := make([]StepResult, len(ec.results))
 	copy(res, ec.results)
 	return res

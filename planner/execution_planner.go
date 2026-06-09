@@ -6,6 +6,7 @@
 package planner
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"github.com/openbotstack/openbotstack-core/ai/providers"
 	"github.com/openbotstack/openbotstack-core/ai/types"
 	"github.com/openbotstack/openbotstack-core/execution"
+	"github.com/openbotstack/openbotstack-core/planner/prompts"
 )
 
 var (
@@ -29,7 +31,6 @@ type ExecutionPlanner interface {
 	// Plan analyzes user intent and produces a validated execution plan.
 	Plan(ctx context.Context, pCtx *PlannerContext) (*execution.ExecutionPlan, error)
 }
-
 
 // ProgressFn is the callback signature for planner progress events.
 type ProgressFn func(eventType, content string)
@@ -58,11 +59,14 @@ func (p *LLMPlanner) Plan(ctx context.Context, pCtx *PlannerContext) (*execution
 
 	prompt := p.buildPrompt(pCtx)
 
+	msgs := []types.Message{
+		{Role: "system", Contents: []types.ContentBlock{types.NewTextBlock(pCtx.Soul.SystemPrompt)}},
+	}
+	msgs = append(msgs, filterSystemMessages(pCtx.ConversationHistory)...)
+	msgs = append(msgs, types.Message{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock(prompt)}})
+
 	mReq := types.GenerateRequest{
-		Messages: []types.Message{
-			{Role: "system", Contents: []types.ContentBlock{types.NewTextBlock(pCtx.Soul.SystemPrompt)}},
-			{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock(prompt)}},
-		},
+		Messages:  msgs,
 		MaxTokens: 8192,
 	}
 
@@ -93,8 +97,6 @@ func (p *LLMPlanner) Plan(ctx context.Context, pCtx *PlannerContext) (*execution
 			}
 			if chunk.Content != "" {
 				buf.WriteString(chunk.Content)
-				// Forward each token as a planning_token event so any SSE client
-				// receives real-time feedback during the planning phase.
 				pCtx.ProgressFn("planning_token", chunk.Content)
 			}
 		}
@@ -120,7 +122,6 @@ func (p *LLMPlanner) Plan(ctx context.Context, pCtx *PlannerContext) (*execution
 	}
 
 	// Empty plan is the cooperative stop signal — skip validation and return as-is.
-	// The inner loop checks len(plan.Steps) == 0 to decide plannerStopped.
 	if len(plan.Steps) == 0 {
 		return plan, nil
 	}
@@ -132,63 +133,49 @@ func (p *LLMPlanner) Plan(ctx context.Context, pCtx *PlannerContext) (*execution
 	return plan, nil
 }
 
-// buildPrompt constructs the LLM prompt for skill selection.
+// buildPrompt constructs the LLM prompt for skill selection using a template.
 func (p *LLMPlanner) buildPrompt(pCtx *PlannerContext) string {
-	var sb strings.Builder
-
-	sb.WriteString("You are an execution planner. Create a deterministic execution plan to handle the user's request.\n/no_think\n")
-	
-	if pCtx.Soul.Personality != "" {
-		fmt.Fprintf(&sb, "\nPersonality: %s\n", pCtx.Soul.Personality)
-	}
-	
-	if pCtx.Soul.Instructions != "" {
-		fmt.Fprintf(&sb, "\nSpecific Instructions:\n%s\n", pCtx.Soul.Instructions)
-	}
-
-	if len(pCtx.MemoryContext) > 0 {
-		sb.WriteString("\nRelevant Memory Context:\n")
-		for _, mem := range pCtx.MemoryContext {
-			fmt.Fprintf(&sb, "- %s\n", string(mem.Content))
-		}
-	}
-
-	sb.WriteString("\nAvailable skills/tools:\n")
 	var specs []ToolSpec
 	for _, skill := range pCtx.Skills {
 		specs = append(specs, SchemaToToolSpec(skill))
 	}
-	sb.WriteString(FormatToolSpecs(specs))
 
-	// Structural boundary: wrap user input in XML tags to prevent
-	// prompt injection. Escape XML special characters within user content.
-	userInput := pCtx.UserRequest
-	userInput = strings.ReplaceAll(userInput, "&", "&amp;")
-	userInput = strings.ReplaceAll(userInput, "<", "&lt;")
-	userInput = strings.ReplaceAll(userInput, ">", "&gt;")
-	sb.WriteString("\n<user_request>\n")
-	sb.WriteString(userInput)
-	sb.WriteString("\n</user_request>\n\n")
+	var memContext []string
+	for _, mem := range pCtx.MemoryContext {
+		memContext = append(memContext, string(mem.Content))
+	}
 
-	sb.WriteString(`Respond with a JSON object containing the execution plan. Do not include any other text or reasoning.
-		Format:
-		{
-		  "assistant_id": "...",
-		  "steps": [
-		    {"type": "tool", "name": "builtin.now", "arguments": {}},
-		    {"type": "skill", "name": "summarize", "arguments": {"text": "..."}},
-		    {"type": "llm", "name": "respond", "arguments": {"prompt": "..."}}
-		  ]
+	data := prompts.PlanData{
+		Personality:   pCtx.Soul.Personality,
+		Instructions:  pCtx.Soul.Instructions,
+		MemoryContext: memContext,
+		Skills:        FormatToolSpecs(specs),
+		UserRequest:   escapeXML(pCtx.UserRequest),
+	}
+
+	var buf bytes.Buffer
+	if err := prompts.PlanTemplate.Execute(&buf, data); err != nil {
+		return "You are an execution planner. Create a plan for: " + escapeXML(pCtx.UserRequest)
+	}
+	return buf.String()
+}
+
+// escapeXML escapes XML special characters to prevent prompt injection.
+func escapeXML(s string) string {
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	return strings.ReplaceAll(s, ">", "&gt;")
+}
+
+// filterSystemMessages strips system-role messages to prevent prompt collision.
+func filterSystemMessages(msgs []types.Message) []types.Message {
+	filtered := make([]types.Message, 0, len(msgs))
+	for _, m := range msgs {
+		if m.Role != "system" {
+			filtered = append(filtered, m)
 		}
-		
-		IMPORTANT:
-		- Use "type": "tool" for mcp.* and builtin.* tools. Use "type": "skill" for skills. Use "type": "llm" for direct LLM responses.
-		- For simple conversation, greetings, or questions with no relevant tool/skill: use a single "llm" step with name="respond".
-		- Only generate steps using the available skills/tools listed above. Never invent skill or tool names.
-		- Reference earlier step outputs with {{step_name}} in arguments. The output replaces the entire placeholder. Do NOT use {{step_name.field}} — always use {{step_name}}.
-	/no_think`)
-
-	return sb.String()
+	}
+	return filtered
 }
 
 // parseResponse extracts an ExecutionPlan from the LLM response.

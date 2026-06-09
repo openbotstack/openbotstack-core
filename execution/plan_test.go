@@ -307,6 +307,53 @@ func TestExecutionStep_ExpectedOutputField(t *testing.T) {
 	}
 }
 
+func TestValidate_AutoGeneratesPlanID(t *testing.T) {
+	plan := ExecutionPlan{
+		Steps: []ExecutionStep{
+			{Name: "step1", Type: StepTypeTool},
+		},
+	}
+	if plan.ID != "" {
+		t.Errorf("plan ID should be empty before Validate, got %q", plan.ID)
+	}
+	if err := plan.Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	if plan.ID == "" {
+		t.Error("plan ID should be auto-generated after Validate")
+	}
+}
+
+func TestValidate_PreservesExistingPlanID(t *testing.T) {
+	plan := ExecutionPlan{
+		Steps: []ExecutionStep{
+			{Name: "step1", Type: StepTypeTool},
+		},
+	}
+	plan.ID = "custom-plan-id-789"
+	if err := plan.Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	if plan.ID != "custom-plan-id-789" {
+		t.Errorf("expected preserved plan ID, got %q", plan.ID)
+	}
+}
+
+func TestExecutionPlan_ParentID(t *testing.T) {
+	plan := ExecutionPlan{
+		Steps: []ExecutionStep{
+			{Name: "step1", Type: StepTypeTool},
+		},
+	}
+	plan.ParentID = "parent-plan-001"
+	if err := plan.Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	if plan.ParentID != "parent-plan-001" {
+		t.Errorf("ParentID should be preserved, got %q", plan.ParentID)
+	}
+}
+
 func TestValidate_AllStepTypes(t *testing.T) {
 	plan := ExecutionPlan{
 		Steps: []ExecutionStep{

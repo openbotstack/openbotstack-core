@@ -74,7 +74,7 @@ func contentsToOpenAI(contents []types.ContentBlock) any {
 		case "image":
 			blocks = append(blocks, openAIContentBlock{
 				Type:     "image_url",
-				ImageURL: &openAIImageURL{URL: c.ImageURL},
+				ImageURL: &openAIImageURL{URL: c.ImageRef()},
 			})
 		}
 	}

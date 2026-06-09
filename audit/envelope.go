@@ -34,6 +34,9 @@ const (
 	EventSystemStarted  EventType = "system.started"
 	EventSystemStopped  EventType = "system.stopped"
 	EventSystemDegraded EventType = "system.degraded"
+
+	// Replan events — controlled replanning
+	EventPlanReplanned EventType = "execution.plan.replanned"
 )
 
 // Severity classifies audit event importance.
@@ -54,6 +57,7 @@ const (
 	SourceAdmin     Source = "admin_api"
 	SourceReasoning Source = "reasoning_loop"
 	SourceSystem    Source = "system"
+	SourceReplan    Source = "replan"
 )
 
 // AuditEnvelope is a standardized view of an AuditEvent for external consumption.
@@ -124,6 +128,8 @@ func (e AuditEvent) ToEnvelope() AuditEnvelope {
 func inferEventType(e AuditEvent) EventType {
 	if e.Action != "" {
 		switch {
+		case e.Action == "harness.replan":
+			return EventPlanReplanned
 		case e.Action == "policy.enforce" || e.Action == "policy.check":
 			if e.Outcome == "denied" {
 				return EventPolicyDenied

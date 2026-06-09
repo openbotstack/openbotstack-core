@@ -55,11 +55,11 @@ func Resolve(s string, results map[string]any) any {
 		}
 		if field != "" {
 			if v := extractFieldStr(res, field); v != nil {
-				return fmt.Sprintf("%v", v)
+				return stringifyValue(v)
 			}
 			return m
 		}
-		return fmt.Sprintf("%v", res)
+		return stringifyValue(res)
 	})
 	return result
 }
@@ -155,6 +155,23 @@ func extractFieldStr(res any, field string) any {
 }
 
 func stringifyComplex(v any) any {
+	switch v := v.(type) {
+	case string:
+		return v
+	case map[string]any, []any:
+		b, err := json.Marshal(v)
+		if err != nil {
+			return fmt.Sprintf("%v", v)
+		}
+		return string(b)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
+// stringifyValue converts any value to a string for template interpolation.
+// Maps and slices are JSON-serialized; everything else uses fmt.Sprintf.
+func stringifyValue(v any) string {
 	switch v := v.(type) {
 	case string:
 		return v
