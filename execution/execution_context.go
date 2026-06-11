@@ -4,6 +4,8 @@ import (
 	"context"
 	"sync"
 	"time"
+
+	"github.com/openbotstack/openbotstack-core/planning"
 )
 
 // StepResult represents the outcome of a single execution step (skill or tool).
@@ -53,10 +55,10 @@ type ExecutionContext struct {
 	// plannerCtx holds the PlannerContext for LLM steps.
 	// Set explicitly by PlanAndRun, retrieved by the harness during LLM step execution.
 	// Replaces context.Value threading — the dependency is now visible.
-	// NOTE: Typed as any due to circular dependency (planner imports execution for
-	// plan types). Consumers type-assert to *planner.PlannerContext and should
-	// log a warning on type mismatch rather than silently accepting nil.
-	plannerCtx any
+	// Properly typed via the planning package (previously typed as `any` to avoid
+	// circular dependency between execution and planner; resolved by extracting
+	// shared types into the planning package).
+	plannerCtx *planning.PlannerContext
 
 	// State (guarded by mutex)
 	mu      sync.RWMutex
@@ -95,16 +97,12 @@ func (ec *ExecutionContext) AddResult(res StepResult) {
 }
 
 // SetPlannerContext stores the planner context for LLM step execution.
-// Accepts any type due to circular dependency between execution and planner packages.
-// The value should always be *planner.PlannerContext.
-func (ec *ExecutionContext) SetPlannerContext(pCtx any) {
+func (ec *ExecutionContext) SetPlannerContext(pCtx *planning.PlannerContext) {
 	ec.plannerCtx = pCtx
 }
 
 // PlannerContext retrieves the stored planner context. Returns nil if not set.
-// The caller should type-assert to *planner.PlannerContext and log a warning
-// on type mismatch rather than silently accepting nil.
-func (ec *ExecutionContext) PlannerContext() any {
+func (ec *ExecutionContext) PlannerContext() *planning.PlannerContext {
 	return ec.plannerCtx
 }
 

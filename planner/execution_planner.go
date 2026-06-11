@@ -16,6 +16,7 @@ import (
 	"github.com/openbotstack/openbotstack-core/ai/types"
 	"github.com/openbotstack/openbotstack-core/execution"
 	"github.com/openbotstack/openbotstack-core/planner/prompts"
+	"github.com/openbotstack/openbotstack-core/planning"
 )
 
 var (
@@ -32,8 +33,9 @@ type ExecutionPlanner interface {
 	Plan(ctx context.Context, pCtx *PlannerContext) (*execution.ExecutionPlan, error)
 }
 
-// ProgressFn is the callback signature for planner progress events.
-type ProgressFn func(eventType, content string)
+// ProgressFn is a type alias for planning.ProgressFn.
+// Kept here for backward compatibility.
+type ProgressFn = planning.ProgressFn
 
 // LLMPlanner implements ExecutionPlanner using an LLM provider to generate JSON plans.
 type LLMPlanner struct {

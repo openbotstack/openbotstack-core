@@ -1,6 +1,10 @@
 package capability
 
-import "context"
+import (
+	"context"
+
+	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
+)
 
 // CapabilityRegistry aggregates capabilities from multiple providers.
 type CapabilityRegistry interface {
@@ -11,7 +15,7 @@ type CapabilityRegistry interface {
 	// Get returns a capability by ID.
 	Get(id string) (Capability, error)
 	// List returns all capability descriptors.
-	List() []CapabilityDescriptor
+	List() []aitypes.SkillDescriptor
 	// ListByKind returns descriptors filtered by kind.
-	ListByKind(kind CapabilityKind) []CapabilityDescriptor
+	ListByKind(kind CapabilityKind) []aitypes.SkillDescriptor
 }

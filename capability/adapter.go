@@ -77,14 +77,6 @@ func NewFromNative(id, name, desc string, schema *aitypes.JSONSchema) Capability
 	}
 }
 
-// SkillToDescriptor converts a Skill to its planner-facing descriptor.
-// Uses registry.GetDescriptor for the canonical conversion — if the Skill
-// implements DescriptorProvider, its Descriptor() method is called directly,
-// otherwise a default is built from core fields.
-func SkillToDescriptor(s registry.Skill) CapabilityDescriptor {
-	return CapabilityDescriptor(registry.GetDescriptor(s))
-}
-
 // CapabilityToDescriptor converts any Capability to its planner-facing
 // SkillDescriptor. For skills (skillCapability), this delegates to
 // registry.GetDescriptor which honors DescriptorProvider. For MCP/native

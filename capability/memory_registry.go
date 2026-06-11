@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
 	registry "github.com/openbotstack/openbotstack-core/registry/skills"
 )
 
@@ -40,24 +41,20 @@ func (r *MemoryCapabilityRegistry) Get(id string) (Capability, error) {
 	return c, nil
 }
 
-func (r *MemoryCapabilityRegistry) List() []CapabilityDescriptor {
-	var descs []CapabilityDescriptor
+func (r *MemoryCapabilityRegistry) List() []aitypes.SkillDescriptor {
+	var descs []aitypes.SkillDescriptor
 	r.store.ForEach(func(_ string, c Capability) {
-		descs = append(descs, capToDescriptor(c))
+		descs = append(descs, CapabilityToDescriptor(c))
 	})
 	return descs
 }
 
-func (r *MemoryCapabilityRegistry) ListByKind(kind CapabilityKind) []CapabilityDescriptor {
-	var descs []CapabilityDescriptor
+func (r *MemoryCapabilityRegistry) ListByKind(kind CapabilityKind) []aitypes.SkillDescriptor {
+	var descs []aitypes.SkillDescriptor
 	r.store.ForEach(func(_ string, c Capability) {
 		if c.Kind() == kind {
-			descs = append(descs, capToDescriptor(c))
+			descs = append(descs, CapabilityToDescriptor(c))
 		}
 	})
 	return descs
-}
-
-func capToDescriptor(c Capability) CapabilityDescriptor {
-	return CapabilityDescriptor(CapabilityToDescriptor(c))
 }

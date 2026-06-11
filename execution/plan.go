@@ -7,19 +7,13 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/openbotstack/openbotstack-core/execution/template"
+	"github.com/openbotstack/openbotstack-core/planning"
 )
 
-// TurnToolResult captures the outcome of a single tool/skill execution within a reasoning turn.
-// Used by the ReasoningLoop to feed structured results back to the planner,
-// replacing the legacy XML <observation> injection hack.
-type TurnToolResult struct {
-	StepName string `json:"step_name"`
-	StepType string `json:"step_type"`           // "tool" | "skill"
-	Success  bool   `json:"success"`
-	Summary  string `json:"summary,omitempty"`    // Human-readable one-line summary
-	Output   string `json:"output,omitempty"`     // Truncated output (max 500 chars)
-	Error    string `json:"error,omitempty"`      // Error message if failed
-}
+// TurnToolResult is a type alias for planning.TurnToolResult.
+// Kept here for backward compatibility — all existing code referencing
+// execution.TurnToolResult continues to compile without changes.
+type TurnToolResult = planning.TurnToolResult
 
 // StepType indicates whether a step is a skill or a tool.
 type StepType string

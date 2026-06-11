@@ -2,6 +2,8 @@ package agent
 
 import (
 	"context"
+
+	"github.com/openbotstack/openbotstack-core/memory/abstraction"
 )
 
 // Agent orchestrates the planning and execution of skills.
@@ -18,6 +20,14 @@ import (
 type Agent interface {
 	// HandleMessage processes a user message and returns a response.
 	HandleMessage(ctx context.Context, req MessageRequest) (*MessageResponse, error)
+}
+
+// MemoryConfigurable is an optional interface that agents may implement to
+// receive memory-related configuration after construction. This decouples
+// the ServerBuilder from concrete agent types.
+type MemoryConfigurable interface {
+	SetMaxHistoryMessages(max int)
+	SetMemoryManager(mgr abstraction.MemoryManager)
 }
 
 // ExecutionMeta contains metadata for execution tracking.

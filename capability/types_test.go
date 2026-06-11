@@ -3,7 +3,7 @@ package capability
 import (
 	"testing"
 
-	"github.com/openbotstack/openbotstack-core/ai/types"
+	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
 )
 
 func TestCapabilityKind_Values(t *testing.T) {
@@ -22,12 +22,12 @@ func TestCapabilityKind_Values(t *testing.T) {
 	}
 }
 
-func TestCapabilityDescriptor_Fields(t *testing.T) {
-	d := CapabilityDescriptor{
+func TestSkillDescriptor_Fields(t *testing.T) {
+	d := aitypes.SkillDescriptor{
 		ID:          "mcp.server1.tool1",
 		Name:        "tool1",
 		Description: "A test tool",
-		InputSchema: &types.JSONSchema{Type: "object"},
+		InputSchema: &aitypes.JSONSchema{Type: "object"},
 		Kind:        string(CapabilityKindMCP),
 		SourceID:    "server1",
 	}

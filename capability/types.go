@@ -13,10 +13,6 @@ const (
 	CapabilityKindNative CapabilityKind = "native"
 )
 
-// CapabilityDescriptor describes a discrete capability that can be presented
-// to the planner as an available tool.
-type CapabilityDescriptor = aitypes.SkillDescriptor
-
 // Capability is the universal interface for anything the registry can hold.
 type Capability interface {
 	ID() string

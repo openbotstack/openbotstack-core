@@ -41,9 +41,10 @@ func TestNewFromSkill(t *testing.T) {
 	}
 }
 
-func TestSkillToDescriptor(t *testing.T) {
+func TestCapabilityToDescriptor_FromSkill(t *testing.T) {
 	s := &stubSkill{id: "core/search", name: "Search", desc: "Search documents"}
-	d := SkillToDescriptor(s)
+	c := NewFromSkill(s)
+	d := CapabilityToDescriptor(c)
 
 	if d.Kind != string(CapabilityKindSkill) {
 		t.Errorf("Kind = %q", d.Kind)

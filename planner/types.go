@@ -1,17 +1,11 @@
 package planner
 
-// AssistantSoul defines the behavioral parameters of an assistant.
-// It acts as the "inner logic" and "personality" that guides the LLM.
-type AssistantSoul struct {
-	SystemPrompt  string   `json:"system_prompt"`
-	Personality   string   `json:"personality"`
-	Instructions  string   `json:"instructions"`
-	AllowedSkills []string `json:"allowed_skills"`
-	AllowedTools  []string `json:"allowed_tools"`
-}
+import "github.com/openbotstack/openbotstack-core/planning"
 
-// SearchResult represents a single entry found during a semantic search.
-type SearchResult struct {
-	Content []byte
-	Score   float32
-}
+// AssistantSoul is a type alias for planning.AssistantSoul.
+// Kept here for backward compatibility.
+type AssistantSoul = planning.AssistantSoul
+
+// SearchResult is a type alias for planning.SearchResult.
+// Kept here for backward compatibility.
+type SearchResult = planning.SearchResult
