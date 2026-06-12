@@ -5,9 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
-	"github.com/openbotstack/openbotstack-core/ai/types"
 	"github.com/openbotstack/openbotstack-core/execution"
 	"github.com/openbotstack/openbotstack-core/planner/prompts"
 )
@@ -26,71 +24,28 @@ func (p *LLMPlanner) Replan(ctx context.Context, rCtx *ReplanContext) (*executio
 
 	prompt := p.buildReplanPrompt(rCtx)
 
-	msgs := []types.Message{
-		{Role: "system", Contents: []types.ContentBlock{types.NewTextBlock(rCtx.PlannerContext.Soul.SystemPrompt)}},
-	}
-	msgs = append(msgs, filterSystemMessages(rCtx.PlannerContext.ConversationHistory)...)
-	msgs = append(msgs, types.Message{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock(prompt)}})
-
-	mReq := types.GenerateRequest{
-		Messages:  msgs,
-		MaxTokens: 8192,
-	}
-
-	provider, err := p.router.Route(
-		[]types.CapabilityType{types.CapTextGeneration},
-		types.ModelConstraints{},
-	)
+	plan, err := p.llmPlanRound(ctx, rCtx.PlannerContext, prompt, planRoundConfig{
+		events: planProgressEvents{
+			generating: "replanning_generating",
+			token:      "replanning_token",
+			complete:   "replanning_complete",
+		},
+		wrapRoutingErr: func(err error) error {
+			return fmt.Errorf("replan: routing failed: %w", err)
+		},
+		wrapLLMErr: func(err error) error {
+			return fmt.Errorf("replan: %w", err)
+		},
+		wrapParseErr: func(err error) error {
+			return fmt.Errorf("replan: failed to parse LLM response: %w", err)
+		},
+	})
 	if err != nil {
-		return nil, fmt.Errorf("replan: routing failed: %w", err)
-	}
-
-	planCtx, cancel := context.WithTimeout(ctx, p.validator.limits.MaxExecutionTime)
-	defer cancel()
-
-	var responseContent string
-
-	// Try streaming first for progress feedback.
-	type streamProvider interface {
-		GenerateStream(context.Context, types.GenerateRequest) (<-chan types.StreamChunk, error)
-	}
-	if sp, ok := provider.(streamProvider); ok && rCtx.PlannerContext.ProgressFn != nil {
-		rCtx.PlannerContext.ProgressFn("replanning_generating", "")
-		ch, err := sp.GenerateStream(planCtx, mReq)
-		if err != nil {
-			return nil, fmt.Errorf("replan: %w", err)
-		}
-		var buf strings.Builder
-		for chunk := range ch {
-			if chunk.Error != nil {
-				return nil, fmt.Errorf("replan: %w", chunk.Error)
-			}
-			if chunk.Content != "" {
-				buf.WriteString(chunk.Content)
-				rCtx.PlannerContext.ProgressFn("replanning_token", chunk.Content)
-			}
-		}
-		responseContent = buf.String()
-		rCtx.PlannerContext.ProgressFn("replanning_complete", "")
-	} else {
-		response, err := provider.Generate(planCtx, mReq)
-		if err != nil {
-			return nil, fmt.Errorf("replan: %w", err)
-		}
-		responseContent = response.Content
-	}
-
-	plan, err := p.parseResponse(responseContent)
-	if err != nil {
-		return nil, fmt.Errorf("replan: failed to parse LLM response: %w", err)
+		return nil, err
 	}
 
 	// Set lineage fields before validation.
 	plan.ParentID = rCtx.OriginalPlan.ID
-
-	if plan.AssistantID == "" {
-		plan.AssistantID = rCtx.PlannerContext.AssistantID
-	}
 
 	// Empty plan is the cooperative stop signal.
 	if len(plan.Steps) == 0 {

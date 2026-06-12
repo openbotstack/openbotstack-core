@@ -26,3 +26,19 @@ type PlannerContext struct {
 	// injection. Nil/empty = first turn or no previous results.
 	TurnResults []TurnToolResult
 }
+
+// WithRequest returns a copy of the context with UserRequest replaced by msg.
+// All other fields are preserved unchanged.
+//
+// The copy is shallow: slice fields (MemoryContext, Skills,
+// ConversationHistory, TurnResults) share their backing arrays with the
+// original. This is intentional and safe for the planner's read-only use —
+// callers must not mutate the shared slices in place. Deep-copy the relevant
+// slice if mutation is required.
+//
+// The original context is never mutated.
+func (c PlannerContext) WithRequest(msg string) *PlannerContext {
+	cp := c // struct copy (shallow: slice headers copied by value)
+	cp.UserRequest = msg
+	return &cp
+}

@@ -2,8 +2,10 @@ package planning_test
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 
+	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
 	"github.com/openbotstack/openbotstack-core/planning"
 )
 
@@ -241,4 +243,122 @@ func TestProgressFn_NilSafe(t *testing.T) {
 	if fn != nil {
 		t.Error("nil ProgressFn should be nil")
 	}
+}
+
+// --- PlannerContext.WithRequest ---
+
+// TestPlannerContext_WithRequest_PreservesAllOtherFields verifies that
+// WithRequest returns a shallow-copied context whose UserRequest is replaced
+// while every other field is preserved (deep equality for slices/structs,
+// function-pointer equality for ProgressFn).
+//
+// This is the failing test written BEFORE implementing WithRequest (TDD).
+func TestPlannerContext_WithRequest_PreservesAllOtherFields(t *testing.T) {
+	// Build a ProgressFn we can identify by pointer identity.
+	var progressCalls int
+	origProgress := planning.ProgressFn(func(eventType, content string) {
+		progressCalls++
+	})
+
+	origCtx := planning.PlannerContext{
+		AssistantID: "asst-med-01",
+		Soul: planning.AssistantSoul{
+			SystemPrompt:  "You are a clinical assistant.",
+			Personality:   "precise",
+			Instructions:  "Always verify dosages.",
+			AllowedSkills: []string{"summarize", "classify"},
+			AllowedTools:  []string{"builtin.web_fetch"},
+		},
+		MemoryContext: []planning.SearchResult{
+			{Content: []byte("patient history"), Score: 0.85},
+			{Content: []byte("lab reference ranges"), Score: 0.71},
+		},
+		Skills: []aitypes.SkillDescriptor{
+			{ID: "s1", Name: "Summarize", Description: "Summarize text"},
+			{ID: "s2", Name: "Classify", Description: "Classify input"},
+		},
+		UserRequest: "original request",
+		ProgressFn:  origProgress,
+		ConversationHistory: []aitypes.Message{
+			{Role: "user", Contents: []aitypes.ContentBlock{aitypes.NewTextBlock("hi")}},
+			{Role: "assistant", Contents: []aitypes.ContentBlock{aitypes.NewTextBlock("hello")}},
+		},
+		TurnResults: []planning.TurnToolResult{
+			{StepName: "fetch_labs", StepType: "tool", Success: true, Summary: "got labs"},
+		},
+	}
+
+	newReq := "new request"
+	got := origCtx.WithRequest(newReq)
+
+	// 1. UserRequest must be replaced.
+	if got.UserRequest != newReq {
+		t.Errorf("UserRequest = %q, want %q", got.UserRequest, newReq)
+	}
+
+	// 2. The original context must be untouched (immutable operation).
+	if origCtx.UserRequest != "original request" {
+		t.Errorf("original UserRequest mutated: %q (must remain %q)",
+			origCtx.UserRequest, "original request")
+	}
+
+	// 3. AssistantID preserved.
+	if got.AssistantID != origCtx.AssistantID {
+		t.Errorf("AssistantID = %q, want %q", got.AssistantID, origCtx.AssistantID)
+	}
+
+	// 4. Soul preserved (deep equality).
+	if !reflect.DeepEqual(got.Soul, origCtx.Soul) {
+		t.Errorf("Soul mismatch:\n got  %+v\n want %+v", got.Soul, origCtx.Soul)
+	}
+
+	// 5. MemoryContext preserved (deep equality).
+	if !reflect.DeepEqual(got.MemoryContext, origCtx.MemoryContext) {
+		t.Errorf("MemoryContext mismatch:\n got  %+v\n want %+v", got.MemoryContext, origCtx.MemoryContext)
+	}
+
+	// 6. Skills preserved (deep equality).
+	if !reflect.DeepEqual(got.Skills, origCtx.Skills) {
+		t.Errorf("Skills mismatch:\n got  %+v\n want %+v", got.Skills, origCtx.Skills)
+	}
+
+	// 7. ConversationHistory preserved (deep equality).
+	if !reflect.DeepEqual(got.ConversationHistory, origCtx.ConversationHistory) {
+		t.Errorf("ConversationHistory mismatch:\n got  %+v\n want %+v",
+			got.ConversationHistory, origCtx.ConversationHistory)
+	}
+
+	// 8. TurnResults preserved (deep equality).
+	if !reflect.DeepEqual(got.TurnResults, origCtx.TurnResults) {
+		t.Errorf("TurnResults mismatch:\n got  %+v\n want %+v", got.TurnResults, origCtx.TurnResults)
+	}
+
+	// 9. ProgressFn preserved (function-pointer identity).
+	//
+	// We assert identity (not just callability) because downstream code relies on
+	// the same callback being invoked. The returned context must carry the same
+	// ProgressFn, not a zero/nil one.
+	if got.ProgressFn == nil {
+		t.Fatal("ProgressFn is nil, want the original non-nil callback")
+	}
+	// Compare via reflect.ValueOf pointer — function values are comparable this way.
+	if !reflect.ValueOf(got.ProgressFn).IsNil() &&
+		funcAddr(got.ProgressFn) != funcAddr(origCtx.ProgressFn) {
+		t.Error("ProgressFn pointer differs from original; want identical callback")
+	}
+
+	// Sanity: the preserved ProgressFn must still be invocable.
+	got.ProgressFn("test_event", "x")
+	if progressCalls != 1 {
+		t.Errorf("preserved ProgressFn call count = %d, want 1", progressCalls)
+	}
+}
+
+// funcAddr returns the pointer representation of a ProgressFn for identity
+// comparison. Function values in Go are backed by a pointer-sized struct
+// (funcval); unsafe-free comparison via fmt is not reliable, so we use
+// reflect.Value.Pointer, which returns the underlying code pointer without
+// dereferencing it.
+func funcAddr(fn planning.ProgressFn) uintptr {
+	return reflect.ValueOf(fn).Pointer()
 }
