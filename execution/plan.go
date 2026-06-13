@@ -76,10 +76,11 @@ func (s *ExecutionStep) ArgumentsJSON() ([]byte, error) {
 
 // ResolveArguments replaces {{step_name}} and {{step_name.field}} references in
 // string argument values with the corresponding results from previously executed steps.
-// Delegates to the template package for resolution logic.
-func (s *ExecutionStep) ResolveArguments(results map[string]any) {
+// Returns an error if any template reference cannot be resolved — the caller MUST
+// fail the step rather than dispatch it with a literal {{...}} string.
+func (s *ExecutionStep) ResolveArguments(results map[string]any) error {
 	if s.Arguments == nil || len(results) == 0 {
-		return
+		return nil
 	}
 	for key, val := range s.Arguments {
 		strVal, ok := val.(string)
@@ -88,12 +89,11 @@ func (s *ExecutionStep) ResolveArguments(results map[string]any) {
 		}
 		resolved, err := template.Resolve(strVal, results)
 		if err != nil {
-			// Keep the original value on resolution failure — the executor
-			// will see the unresolved template and can surface the error.
-			continue
+			return fmt.Errorf("arg %q: %w", key, err)
 		}
 		s.Arguments[key] = resolved
 	}
+	return nil
 }
 
 // CoerceStringNumbers converts string argument values that represent numbers
