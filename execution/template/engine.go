@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -15,15 +16,18 @@ var templateRe = regexp.MustCompile(`\{\{([\w][\w.-]*)\}\}`)
 
 // Resolve replaces {{step_name}} and {{step_name.field}} references in a string
 // with values from results. A single template spanning the entire string preserves
-// the original type; embedded templates become strings. Unresolved references
-// remain as-is.
-func Resolve(s string, results map[string]any) any {
+// the original type; embedded templates become strings.
+//
+// Returns an error when a step name or field path cannot be resolved — there is
+// no silent fallback. The error message lists available step names / field keys
+// to help the caller fix the template.
+func Resolve(s string, results map[string]any) (any, error) {
 	if !strings.Contains(s, "{{") || len(results) == 0 {
-		return s
+		return s, nil
 	}
 	matches := templateRe.FindAllStringSubmatchIndex(s, -1)
 	if len(matches) == 0 {
-		return s
+		return s, nil
 	}
 
 	// Single template spanning the entire string → preserve type
@@ -35,33 +39,45 @@ func Resolve(s string, results map[string]any) any {
 			stepName, field := resolveTemplateContent(content, results)
 			res, ok := results[stepName]
 			if !ok {
-				return s
+				return nil, fmt.Errorf("template: step %q not found (available: %s)",
+					stepName, strings.Join(resultKeys(results), ", "))
 			}
 			if field != "" {
-				return stringifyComplex(extractField(res, field, s))
+				v, err := extractField(res, field)
+				if err != nil {
+					return nil, fmt.Errorf("template %q: %w", s, err)
+				}
+				return stringifyComplex(v), nil
 			}
-			return stringifyComplex(res)
+			return stringifyComplex(res), nil
 		}
 	}
 
 	// Multiple or embedded templates → string interpolation
+	var errs []string
 	result := templateRe.ReplaceAllStringFunc(s, func(m string) string {
 		parts := templateRe.FindStringSubmatch(m)
 		content := parts[1]
 		stepName, field := resolveTemplateContent(content, results)
 		res, ok := results[stepName]
 		if !ok {
+			errs = append(errs, fmt.Sprintf("step %q not found", stepName))
 			return m
 		}
 		if field != "" {
-			if v := extractFieldStr(res, field); v != nil {
-				return stringifyValue(v)
+			v, err := extractField(res, field)
+			if err != nil {
+				errs = append(errs, err.Error())
+				return m
 			}
-			return m
+			return stringifyValue(v)
 		}
 		return stringifyValue(res)
 	})
-	return result
+	if len(errs) > 0 {
+		return nil, fmt.Errorf("template %q: %s", s, strings.Join(errs, "; "))
+	}
+	return result, nil
 }
 
 // resolveTemplateContent splits a template's inner content into stepName and
@@ -122,36 +138,45 @@ func CoerceStringNumbers(args map[string]any) int {
 	return coerced
 }
 
-func extractField(res any, field string, fallback any) any {
+// extractField walks a dotted field path into a result map and returns the value.
+// Returns an error listing available keys when a segment cannot be found.
+func extractField(res any, field string) (any, error) {
 	current := res
-	for _, f := range strings.Split(field, ".") {
+	path := strings.Split(field, ".")
+	for i, f := range path {
 		m, ok := current.(map[string]any)
 		if !ok {
-			return fallback
+			return nil, fmt.Errorf("field %q: cannot index into %T at %q",
+				field, current, strings.Join(path[:i], "."))
 		}
 		v, exists := m[f]
 		if !exists {
-			return fallback
+			return nil, fmt.Errorf("field %q not found (available: %s)",
+				f, strings.Join(mapKeys(m), ", "))
 		}
 		current = v
 	}
-	return current
+	return current, nil
 }
 
-func extractFieldStr(res any, field string) any {
-	current := res
-	for _, f := range strings.Split(field, ".") {
-		m, ok := current.(map[string]any)
-		if !ok {
-			return nil
-		}
-		v, exists := m[f]
-		if !exists {
-			return nil
-		}
-		current = v
+// resultKeys returns sorted step names from the results map.
+func resultKeys(results map[string]any) []string {
+	keys := make([]string, 0, len(results))
+	for k := range results {
+		keys = append(keys, k)
 	}
-	return current
+	sort.Strings(keys)
+	return keys
+}
+
+// mapKeys returns sorted keys from a map.
+func mapKeys(m map[string]any) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func stringifyComplex(v any) any {

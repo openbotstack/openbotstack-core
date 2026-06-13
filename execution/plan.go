@@ -86,7 +86,13 @@ func (s *ExecutionStep) ResolveArguments(results map[string]any) {
 		if !ok {
 			continue
 		}
-		s.Arguments[key] = template.Resolve(strVal, results)
+		resolved, err := template.Resolve(strVal, results)
+		if err != nil {
+			// Keep the original value on resolution failure — the executor
+			// will see the unresolved template and can surface the error.
+			continue
+		}
+		s.Arguments[key] = resolved
 	}
 }
 
