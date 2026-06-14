@@ -96,6 +96,24 @@ func (s *ExecutionStep) ResolveArguments(results map[string]any) error {
 	return nil
 }
 
+// Prepare returns a copy of the step ready for dispatch: it clones s (so the
+// frozen plan's step is never mutated), coerces numeric-string arguments, and
+// resolves {{...}} templates against results. This is the single place that
+// owns "get a step ready to run" — callers should use Prepare rather than
+// Clone+Coerce+Resolve separately, which historically led to steps being
+// resolved redundantly (and inconsistently) across the dispatch path.
+//
+// On a resolution error the original step is left untouched and the error is
+// returned.
+func (s *ExecutionStep) Prepare(results map[string]any) (*ExecutionStep, error) {
+	clone := s.Clone()
+	clone.CoerceStringNumbers()
+	if err := clone.ResolveArguments(results); err != nil {
+		return nil, fmt.Errorf("step %q: %w", clone.Name, err)
+	}
+	return clone, nil
+}
+
 // CoerceStringNumbers converts string argument values that represent numbers
 // into their native types. Delegates to the template package for coercion logic.
 // Returns the number of values that were coerced.

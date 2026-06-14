@@ -369,3 +369,68 @@ func TestValidate_AllStepTypes(t *testing.T) {
 		t.Error("plan should be frozen")
 	}
 }
+
+// TestExecutionStep_Prepare is the deepening of #1: Prepare is the single place
+// that owns "get a step ready to dispatch" — clone + coerce + resolve. It must
+// (a) return a clone so the frozen plan step is not mutated, (b) resolve
+// {{...}} templates against prior results, (c) coerce numeric strings.
+func TestExecutionStep_Prepare_ClonesResolvesCoerces(t *testing.T) {
+	original := &ExecutionStep{
+		Name: "tool-step",
+		Arguments: map[string]any{
+			"url":    "{{prev.out}}",   // template to resolve
+			"count":  "42",              // numeric string to coerce
+		},
+	}
+	prev := map[string]any{"prev": map[string]any{"out": "https://example.com"}}
+
+	prepared, err := original.Prepare(prev)
+	if err != nil {
+		t.Fatalf("Prepare returned error: %v", err)
+	}
+	if prepared == original {
+		t.Fatal("Prepare must return a clone, not the same pointer")
+	}
+	// Original must be untouched.
+	if original.Arguments["url"] != "{{prev.out}}" {
+		t.Errorf("Prepare mutated the original step: url=%v", original.Arguments["url"])
+	}
+	// Prepared must have resolved the template.
+	if got, _ := prepared.Arguments["url"].(string); got != "https://example.com" {
+		t.Errorf("template not resolved in prepared step: got %v", prepared.Arguments["url"])
+	}
+	// Prepared must have coerced the numeric string.
+	if n, ok := prepared.Arguments["count"].(int64); !ok || n != 42 {
+		t.Errorf("count not coerced: got %T %v", prepared.Arguments["count"], prepared.Arguments["count"])
+	}
+}
+
+func TestExecutionStep_Prepare_ReturnsResolutionError(t *testing.T) {
+	step := &ExecutionStep{
+		Name:      "tool-step",
+		Arguments: map[string]any{"x": "{{missing_step.field}}"},
+	}
+	prev := map[string]any{"other": 1}
+	if _, err := step.Prepare(prev); err == nil {
+		t.Fatal("Prepare should surface resolution errors")
+	}
+	// Original untouched on error.
+	if step.Arguments["x"] != "{{missing_step.field}}" {
+		t.Error("Prepare mutated the original step on error")
+	}
+}
+
+func TestExecutionStep_Prepare_NoResultsIsNoOp(t *testing.T) {
+	step := &ExecutionStep{
+		Name:      "tool-step",
+		Arguments: map[string]any{"x": "{{prev}}"},
+	}
+	prepared, err := step.Prepare(nil)
+	if err != nil {
+		t.Fatalf("Prepare with nil results should not error: %v", err)
+	}
+	// No results → template left as-is (legitimate first-step state).
+	if prepared.Arguments["x"] != "{{prev}}" {
+		t.Errorf("with no results, template should be untouched: got %v", prepared.Arguments["x"])
+	}
+}
