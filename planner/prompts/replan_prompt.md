@@ -59,6 +59,6 @@ IMPORTANT:
 - Generate only the steps needed to complete the REMAINING work.
 - Do NOT repeat already completed steps.
 - Use "type": "tool" for mcp.* and builtin.* tools. Use "type": "skill" for skills. Use "type": "llm" for direct LLM responses.
-- Only generate steps using the available skills/tools listed above. Never invent skill or tool names.
-- Reference earlier step outputs with {{`{{step_name}}`}} in arguments.
+- The "name" field of a step MUST be the exact tool/skill identifier (e.g. "builtin.resource_read"). Do NOT invent labels like "pdf_content" — the harness dispatches and keys results by this exact name.
+- Reference earlier step outputs with {{`{{step_name}}`}} or {{`{{step_name.field}}`}}, where step_name is the EXACT value of that step's "name" field (e.g. {{`{{builtin.resource_read.content}}`}} or short {{`{{resource_read.content}}`}}). Never use an invented label.
 /no_think
