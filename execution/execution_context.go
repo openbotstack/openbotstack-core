@@ -13,6 +13,7 @@ type StepResult struct {
 	StepName string
 	Type     string // "skill", "tool", or "llm"
 	Output   any
+	Evidence []Evidence // data provenance, produced by Tool code path only (ADR-035); LLM never writes it
 	Error    error
 	Duration time.Duration
 	StepID   string
