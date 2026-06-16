@@ -191,3 +191,48 @@ func TestResolve_NilArguments(t *testing.T) {
 		t.Errorf("Resolve(empty string) = %v, want empty", got)
 	}
 }
+
+// ExtractReferencedSteps returns the distinct step names referenced by
+// {{step}} / {{step.field}} templates in s, restricted to the known step names.
+// Used by Evidence bubbling (ADR-035 Open Q2): a step that references another
+// step's output inherits its evidence so downstream Provenance Verify doesn't break.
+func TestExtractReferencedSteps(t *testing.T) {
+	known := map[string]bool{"step_a": true, "step_b": true, "mcp.his.query": true}
+
+	cases := []struct {
+		name string
+		s    string
+		want []string
+	}{
+		{"no templates", "plain text", nil},
+		{"single full", "{{step_a}}", []string{"step_a"}},
+		{"embedded multiple", "x={{step_a}} y={{step_b.field}}", []string{"step_a", "step_b"}},
+		{"dotted name with field", "{{mcp.his.query.code}}", []string{"mcp.his.query"}},
+		{"unknown step ignored", "{{unknown}} and {{step_a}}", []string{"step_a"}},
+		{"dedup", "{{step_a}} {{step_a}}", []string{"step_a"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := ExtractReferencedSteps(c.s, known)
+			if !sameSet(got, c.want) {
+				t.Errorf("ExtractReferencedSteps(%q) = %v, want %v", c.s, got, c.want)
+			}
+		})
+	}
+}
+
+func sameSet(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	seen := make(map[string]bool, len(a))
+	for _, x := range a {
+		seen[x] = true
+	}
+	for _, x := range b {
+		if !seen[x] {
+			return false
+		}
+	}
+	return true
+}

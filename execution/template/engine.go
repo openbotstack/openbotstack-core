@@ -113,6 +113,39 @@ func resolveTemplateContent(content string, results map[string]any) (stepName, f
 	return content, ""
 }
 
+// ExtractReferencedSteps returns the distinct step names that s references via
+// {{step}} / {{step.field}} templates, restricted to the names in known. Unknown
+// references are ignored. Disambiguation (step names containing dots, e.g.
+// mcp.his.query) reuses the same logic as Resolve, so it matches the runtime's
+// actual resolution. Used for Evidence bubbling (ADR-035 Open Q2): a step that
+// references another step's output inherits that step's evidence.
+func ExtractReferencedSteps(s string, known map[string]bool) []string {
+	if !strings.Contains(s, "{{") || len(known) == 0 {
+		return nil
+	}
+	// Build a key-only results map so resolveTemplateContent can disambiguate.
+	results := make(map[string]any, len(known))
+	for k := range known {
+		results[k] = nil
+	}
+	matches := templateRe.FindAllStringSubmatchIndex(s, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+	seen := make(map[string]bool, len(matches))
+	var out []string
+	for _, m := range matches {
+		content := s[m[2]:m[3]]
+		stepName, _ := resolveTemplateContent(content, results)
+		if stepName == "" || !known[stepName] || seen[stepName] {
+			continue
+		}
+		seen[stepName] = true
+		out = append(out, stepName)
+	}
+	return out
+}
+
 // CoerceStringNumbers converts string values in args that represent numbers
 // (integer, float, or boolean) into their native types. This handles the common
 // case where an LLM generates {"a": "42"} instead of {"a": 42}.
