@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
 	"github.com/openbotstack/openbotstack-core/planning"
 )
 
@@ -19,6 +20,11 @@ type StepResult struct {
 	StepID   string
 	Retries  int
 	Fallback bool
+	// OutputSchema is the schema this step's output was verified against (ADR-036),
+	// copied from the enriched step so downstream consumers (Completion Check
+	// ADR-037, audit) can inspect RequiresEvidence without re-resolving the step.
+	// nil when no schema was declared. Not serialized in JSON form by default.
+	OutputSchema *aitypes.JSONSchema `json:"-"`
 }
 
 // ExecutionContext holds the request-scoped state for an execution plan.
