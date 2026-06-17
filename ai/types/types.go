@@ -211,6 +211,15 @@ type JSONSchema struct {
 	Then        *JSONSchema   `json:"then,omitempty"`
 	Else        *JSONSchema   `json:"else,omitempty"`
 	Schema      string        `json:"$schema,omitempty"`
+
+	// RequiresEvidence is an OpenBotStack extension (ADR-036 Phase 2): the list of
+	// Output field names whose values must be substantiated by a trusted Evidence
+	// entry (Evidence.OutputField match) produced by the Tool code path. Provenance
+	// Verify checks each named field has matching evidence; a missing match means
+	// the value has no trusted source — treated as LLM fabrication (unsubstantiated).
+	// Empty/nil = Provenance Verify is a no-op for this step (default off, backward
+	// compatible). Lives on the schema so it flows with OutputSchema to the harness.
+	RequiresEvidence []string `json:"requiresEvidence,omitempty"`
 }
 
 // ConstValue wraps a constant value for JSON Schema const validation.
