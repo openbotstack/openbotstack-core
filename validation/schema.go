@@ -36,6 +36,20 @@ func ValidateInput(input []byte, schema *types.JSONSchema) error {
 	return validateValue(data, schema, "")
 }
 
+// ValidateValue validates an already-decoded Go value against a JSONSchema,
+// without a JSON byte round-trip. Returns nil if schema is nil.
+//
+// This is the Verify engine for StepResult.Output (ADR-036 Phase 1): Output is a
+// Go value (often map[string]any or a string), not raw JSON, so validating it
+// directly avoids re-marshalling and preserves native numeric types. It reuses
+// the same deterministic validator as ValidateInput — zero LLM, pure code.
+func ValidateValue(data any, schema *types.JSONSchema) error {
+	if schema == nil {
+		return nil
+	}
+	return validateValue(data, schema, "")
+}
+
 // ValidateInputStrict validates with strict mode: rejects unknown properties,
 // enforces all types exactly, and requires all schema constraints.
 func ValidateInputStrict(input []byte, schema *types.JSONSchema) error {

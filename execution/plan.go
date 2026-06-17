@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
 	"github.com/openbotstack/openbotstack-core/execution/template"
 	"github.com/openbotstack/openbotstack-core/planning"
 )
@@ -41,6 +42,14 @@ type ExecutionStep struct {
 	// ExpectedOutput is a human-readable description of the expected result.
 	// Used for documentation and audit, not enforced programmatically.
 	ExpectedOutput string `json:"expected_output,omitempty"`
+
+	// OutputSchema is the JSON Schema declaring this step's expected output
+	// structure (ADR-036 Phase 1). Populated by the planner from the skill's
+	// manifest so the harness can run deterministic Schema Verify on
+	// StepResult.Output without consulting a registry at execution time — the
+	// plan is self-contained. nil = no schema declared → Verify is a no-op
+	// (backward compatible; builtin tools and schema-less skills skip Verify).
+	OutputSchema *aitypes.JSONSchema `json:"output_schema,omitempty"`
 
 	// Parallelizable indicates this step can run concurrently with other steps
 	// in the same ParallelGroup. Steps with the same non-empty ParallelGroup

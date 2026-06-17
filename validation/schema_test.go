@@ -1069,3 +1069,57 @@ func TestJSONSchema_DefsSerialization(t *testing.T) {
 		t.Errorf("address type: expected 'object', got %q", decoded.Defs["address"].Type)
 	}
 }
+
+// ValidateValue validates an already-decoded Go value against a JSONSchema,
+// without a JSON byte round-trip. This is the Verify engine for StepResult.Output
+// (ADR-036 Phase 1): Output is a Go value, not raw JSON, so validating it directly
+// avoids re-marshalling and preserves native types.
+func TestValidateValue_NilSchemaNoOp(t *testing.T) {
+	if err := ValidateValue(map[string]any{"x": 1}, nil); err != nil {
+		t.Errorf("nil schema should be a no-op, got %v", err)
+	}
+}
+
+func TestValidateValue_MapOutput_RequiredMissing(t *testing.T) {
+	schema := &types.JSONSchema{
+		Type:     "object",
+		Required: []string{"status"},
+		Properties: map[string]*types.JSONSchema{
+			"status": {Type: "string", Enum: []any{"ok", "error"}},
+		},
+	}
+	// Output missing the required "status" field → must fail.
+	if err := ValidateValue(map[string]any{"other": 1}, schema); err == nil {
+		t.Error("ValidateValue must fail when a required field is missing")
+	}
+}
+
+func TestValidateValue_MapOutput_EnumViolation(t *testing.T) {
+	statusSchema := &types.JSONSchema{Type: "string", Enum: []any{"ok", "error"}}
+	schema := &types.JSONSchema{
+		Type:       "object",
+		Required:   []string{"status"},
+		Properties: map[string]*types.JSONSchema{"status": statusSchema},
+	}
+	// "bogus" not in enum → must fail.
+	if err := ValidateValue(map[string]any{"status": "bogus"}, schema); err == nil {
+		t.Error("ValidateValue must fail on enum violation")
+	}
+	// valid value → must pass.
+	if err := ValidateValue(map[string]any{"status": "ok"}, schema); err != nil {
+		t.Errorf("valid output should pass: %v", err)
+	}
+}
+
+func TestValidateValue_PreservesNativeNumber(t *testing.T) {
+	// Output carries a native float64 — ValidateValue must check range without a
+	// JSON round-trip that could lose precision or change the type.
+	min, max := 0.0, 100.0
+	schema := &types.JSONSchema{Type: "number", Minimum: &min, Maximum: &max}
+	if err := ValidateValue(float64(42), schema); err != nil {
+		t.Errorf("42 should pass 0..100: %v", err)
+	}
+	if err := ValidateValue(float64(150), schema); err == nil {
+		t.Error("150 must fail maximum 100")
+	}
+}
