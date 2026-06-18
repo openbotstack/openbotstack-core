@@ -78,6 +78,11 @@ type ReasoningPolicy struct {
 
 // SafetyPolicy is a constitution field: only effective at Global scope.
 // Tenant/Session attempts to set it are rejected (422 on write) or ignored (Merge).
+//
+// This is the governance safety policy (ADR-042). It is distinct from
+// core/ai/safety.SafetyPolicy, which is a content-filtering configuration
+// (regex-based input/output filtering). The two types live in different packages
+// and serve different layers of the platform.
 type SafetyPolicy struct {
 	HallucinationGuard *bool `json:"hallucination_guard,omitempty"` // force evidence to counter hallucination
 	MedicalMode        *bool `json:"medical_mode,omitempty"`        // stricter medical mode

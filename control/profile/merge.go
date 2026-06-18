@@ -57,9 +57,11 @@ func Merge(global AssistantProfile, tenant, session *AssistantProfile) (Assistan
 }
 
 // mergeTenant applies tenant-allowed overrides onto effective and records violations
-// for constitution fields the tenant attempted to set.
+// for fields the tenant attempted to set but is not permitted to (constitution +
+// session-only). Session-only violations are produced by the shared
+// tenantSessionOnlyViolations helper so the read path matches ValidateScope exactly.
 func mergeTenant(effective *AssistantProfile, tenant AssistantProfile) []Violation {
-	var vs []Violation
+	vs := tenantSessionOnlyViolations(tenant)
 
 	// --- Soul.Identity: all tenant-allowed ---
 	mergeString(&effective.Soul.Identity.Name, tenant.Soul.Identity.Name)
@@ -73,12 +75,8 @@ func mergeTenant(effective *AssistantProfile, tenant AssistantProfile) []Violati
 	mergeString(&effective.Soul.Behavior.Language, tenant.Soul.Behavior.Language)
 	mergeBoolPtr(&effective.Soul.Behavior.Citations, tenant.Soul.Behavior.Citations)
 
-	// --- Reasoning: enabled tenant-allowed; show_reasoning NOT tenant-allowed ---
+	// --- Reasoning: enabled tenant-allowed; show_reasoning session-only (recorded above) ---
 	mergeBoolPtr(&effective.Reasoning.Enabled, tenant.Reasoning.Enabled)
-	if tenant.Reasoning.ShowReasoning != nil {
-		vs = append(vs, Violation{Scope: ScopeTenant, Field: "reasoning.show_reasoning",
-			Reason: "field not overridable at tenant scope"})
-	}
 
 	// --- Safety / Evidence: constitution. Any set field is a violation, ignored. ---
 	vs = append(vs, constitutionViolations(ScopeTenant, "safety", safetySetFields(tenant.Safety))...)
@@ -90,16 +88,8 @@ func mergeTenant(effective *AssistantProfile, tenant AssistantProfile) []Violati
 	mergeBoolPtr(&effective.Output.Citations, tenant.Output.Citations)
 	mergeFloatPtr(&effective.Output.Temperature, tenant.Output.Temperature)
 
-	// --- Presentation: reasoning_summary tenant-allowed; compact_mode + theme NOT ---
+	// --- Presentation: reasoning_summary tenant-allowed; compact_mode + theme session-only (above) ---
 	mergeBoolPtr(&effective.Presentation.ReasoningSummary, tenant.Presentation.ReasoningSummary)
-	if tenant.Presentation.CompactMode != nil {
-		vs = append(vs, Violation{Scope: ScopeTenant, Field: "presentation.compact_mode",
-			Reason: "field not overridable at tenant scope"})
-	}
-	if tenant.Presentation.Theme != "" {
-		vs = append(vs, Violation{Scope: ScopeTenant, Field: "presentation.theme",
-			Reason: "field not overridable at tenant scope"})
-	}
 
 	return vs
 }

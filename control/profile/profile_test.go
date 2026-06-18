@@ -114,6 +114,56 @@ func TestValidateScope_SessionRejectsDisallowed(t *testing.T) {
 	}
 }
 
+// TestValidateScope_TenantRejectsSessionOnlyFields guards H1: the write path must
+// reject session-only fields set at tenant scope, so invalid rows never persist.
+// (ADR-042 §3 matrix: reasoning.show_reasoning / presentation.compact_mode /
+// presentation.theme are Tenant ✗.)
+func TestValidateScope_TenantRejectsSessionOnlyFields(t *testing.T) {
+	tenant := AssistantProfile{
+		Scope:        ScopeTenant,
+		TenantID:     "acme",
+		Reasoning:    ReasoningPolicy{ShowReasoning: boolPtr(true)},
+		Presentation: PresentationPolicy{CompactMode: boolPtr(true), Theme: "dark"},
+	}
+	vs := ValidateScope(tenant)
+	got := map[string]bool{}
+	for _, v := range vs {
+		got[v.Field] = true
+	}
+	for _, f := range []string{"reasoning.show_reasoning", "presentation.compact_mode", "presentation.theme"} {
+		if !got[f] {
+			t.Errorf("tenant setting %s must be a violation on the write path (H1)", f)
+		}
+	}
+}
+
+// TestMerge_ReadPathAgreesWithValidateScope ensures the read path (Merge) records the
+// same session-only tenant violations the write path (ValidateScope) rejects.
+func TestMerge_ReadPathAgreesWithValidateScope(t *testing.T) {
+	tenant := AssistantProfile{
+		Scope:        ScopeTenant,
+		TenantID:     "acme",
+		Presentation: PresentationPolicy{Theme: "dark"},
+	}
+	writeVs := ValidateScope(tenant)
+	_, mergeVs := Merge(DefaultGlobal(), &tenant, nil)
+	// Both paths must flag presentation.theme for this tenant profile.
+	hasTheme := func(vs []Violation) bool {
+		for _, v := range vs {
+			if v.Field == "presentation.theme" {
+				return true
+			}
+		}
+		return false
+	}
+	if !hasTheme(writeVs) {
+		t.Error("write path did not flag presentation.theme")
+	}
+	if !hasTheme(mergeVs) {
+		t.Error("read path did not flag presentation.theme")
+	}
+}
+
 func TestProfile_JSONRoundTrip(t *testing.T) {
 	g := DefaultGlobal()
 	data, err := json.Marshal(g)

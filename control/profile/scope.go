@@ -3,7 +3,6 @@ package profile
 import (
 	"fmt"
 	"sort"
-	"strings"
 )
 
 // Violation records an attempt by a non-Global scope to set a field it is not
@@ -42,11 +41,37 @@ func ValidateScope(p AssistantProfile) []Violation {
 		vs = append(vs, constitutionViolations(p.Scope, "evidence", evidenceSetFields(p.Evidence))...)
 	}
 
+	// Tenant may not set session-only fields (ADR-042 §3). The write path must reject
+	// these — mirrors mergeTenant's read-path enforcement — so invalid rows never persist.
+	if p.Scope == ScopeTenant {
+		vs = append(vs, tenantSessionOnlyViolations(p)...)
+	}
+
 	// Session may only touch a small allow-list; anything else it sets is a violation.
 	if p.Scope == ScopeSession {
 		vs = append(vs, sessionAllowListViolations(p)...)
 	}
 
+	return vs
+}
+
+// tenantSessionOnlyViolations reports session-only fields that a tenant profile attempted
+// to set. Shared by ValidateScope (write path → 422) and mergeTenant (read path → ignore)
+// so both paths enforce the identical ADR-042 §3 matrix.
+func tenantSessionOnlyViolations(p AssistantProfile) []Violation {
+	var vs []Violation
+	if p.Reasoning.ShowReasoning != nil {
+		vs = append(vs, Violation{Scope: ScopeTenant, Field: "reasoning.show_reasoning",
+			Reason: "field not overridable at tenant scope"})
+	}
+	if p.Presentation.CompactMode != nil {
+		vs = append(vs, Violation{Scope: ScopeTenant, Field: "presentation.compact_mode",
+			Reason: "field not overridable at tenant scope"})
+	}
+	if p.Presentation.Theme != "" {
+		vs = append(vs, Violation{Scope: ScopeTenant, Field: "presentation.theme",
+			Reason: "field not overridable at tenant scope"})
+	}
 	return vs
 }
 
@@ -166,14 +191,3 @@ func SortedViolations(vs []Violation) []Violation {
 	return out
 }
 
-// ViolationsMessage joins violations into a single human-readable string.
-func ViolationsMessage(vs []Violation) string {
-	if len(vs) == 0 {
-		return ""
-	}
-	parts := make([]string, len(vs))
-	for i, v := range vs {
-		parts[i] = v.String()
-	}
-	return strings.Join(parts, "; ")
-}
