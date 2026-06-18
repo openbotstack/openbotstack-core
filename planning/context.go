@@ -2,6 +2,7 @@ package planning
 
 import (
 	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
+	"github.com/openbotstack/openbotstack-core/control/profile"
 )
 
 // PlannerContext contains the unified state for generating an execution plan.
@@ -11,10 +12,17 @@ import (
 type PlannerContext struct {
 	AssistantID string
 	Soul        AssistantSoul
+	// ProfileSoul, when non-nil, replaces the legacy Soul.SystemPrompt injection
+	// with a minimal prompt synthesised from the structured Soul fields (ADR-042
+	// Phase 2). Keeping it optional (nil) allows the planner to fall back to the
+	// existing SystemPrompt string, preserving backward compatibility. The runtime
+	// populates this field from the profile.ProfileStore (Global scope only in
+	// Phase 2; Tenant/Session merge deferred to Phase 3).
+	ProfileSoul   *profile.Soul
 	MemoryContext []SearchResult
-	Skills       []aitypes.SkillDescriptor
-	UserRequest  string
-	ProgressFn   ProgressFn
+	Skills        []aitypes.SkillDescriptor
+	UserRequest   string
+	ProgressFn    ProgressFn
 	// ConversationHistory holds prior session messages (user + assistant turns).
 	// System-role messages are filtered at each injection site independently
 	// (planner, LLMGenerator, ReasoningLoop) because each has independent

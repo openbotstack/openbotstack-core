@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/openbotstack/openbotstack-core/ai/providers"
+	"github.com/openbotstack/openbotstack-core/control/profile"
 	"github.com/openbotstack/openbotstack-core/ai/types"
 	"github.com/openbotstack/openbotstack-core/execution"
 	"github.com/openbotstack/openbotstack-core/planner/prompts"
@@ -122,8 +123,17 @@ type planRoundConfig struct {
 // The caller is responsible for prompt construction, lineage (e.g. ParentID),
 // and any post-parse validation/freezing that differs between Plan and Replan.
 func (p *LLMPlanner) llmPlanRound(ctx context.Context, pCtx *PlannerContext, prompt string, cfg planRoundConfig) (*execution.ExecutionPlan, error) {
+	// ADR-042 Phase 2: if a structured ProfileSoul is present, synthesise a minimal
+	// system prompt from typed fields. Otherwise fall back to the legacy free-form
+	// SystemPrompt string (backward compatible — Phase 3 retires this path).
+	systemText := pCtx.Soul.SystemPrompt
+	if pCtx.ProfileSoul != nil {
+		if prompt := profile.RenderPrompt(*pCtx.ProfileSoul); prompt != "" {
+			systemText = prompt
+		}
+	}
 	msgs := []types.Message{
-		{Role: "system", Contents: []types.ContentBlock{types.NewTextBlock(pCtx.Soul.SystemPrompt)}},
+		{Role: "system", Contents: []types.ContentBlock{types.NewTextBlock(systemText)}},
 	}
 	msgs = append(msgs, filterSystemMessages(pCtx.ConversationHistory)...)
 	msgs = append(msgs, types.Message{Role: "user", Contents: []types.ContentBlock{types.NewTextBlock(prompt)}})
