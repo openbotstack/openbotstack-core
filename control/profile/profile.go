@@ -62,10 +62,11 @@ type Identity struct {
 	Avatar      string `json:"avatar,omitempty"`      // optional avatar URL
 }
 
-// Behavior captures surface-level conversational style.
+// Behavior captures surface-level conversational style. Language lives in
+// OutputPolicy (the output domain), not here — a single Language field avoids the
+// ambiguity of two overlapping language settings.
 type Behavior struct {
 	Tone      string `json:"tone,omitempty"`      // concise/detailed/formal/warm
-	Language  string `json:"language,omitempty"`  // BCP-47 tag, e.g. zh-CN/en-US
 	Citations *bool  `json:"citations,omitempty"` // whether to cite evidence
 }
 

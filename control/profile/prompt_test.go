@@ -15,12 +15,13 @@ func TestRenderPrompt_EmptySoul_ReturnsEmpty(t *testing.T) {
 func TestRenderPrompt_DefaultGlobal(t *testing.T) {
 	s := DefaultGlobal().Soul
 	got := RenderPrompt(s)
-	// DefaultGlobal has persona=general, domain=general, tone=concise, language=zh-CN.
+	// DefaultGlobal has persona=general, domain=general, tone=concise.
+	// Language lives in Output (not Soul), so RenderPrompt omits it.
 	// Citations is nil in DefaultGlobal (not set), so "Cite evidence" should NOT appear.
 	if got == "" {
 		t.Fatal("expected non-empty prompt for default global Soul")
 	}
-	for _, want := range []string{"Persona:", "general", "Tone:", "concise", "Language:", "zh-CN"} {
+	for _, want := range []string{"Persona:", "general", "Tone:", "concise"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("render missing %q in %q", want, got)
 		}
@@ -31,12 +32,11 @@ func TestRenderPrompt_ICUProfile(t *testing.T) {
 	tr := true
 	s := Soul{
 		Identity: Identity{Name: "ICU Bot", Persona: PersonaICU, Domain: DomainHealthcare},
-		Behavior: Behavior{Tone: "detailed", Language: "en-US", Citations: &tr},
+		Behavior: Behavior{Tone: "detailed", Citations: &tr},
 	}
 	got := RenderPrompt(s)
 	if !strings.Contains(got, PersonaICU) || !strings.Contains(got, "ICU Bot") ||
-		!strings.Contains(got, DomainHealthcare) || !strings.Contains(got, "detailed") ||
-		!strings.Contains(got, "en-US") {
+		!strings.Contains(got, DomainHealthcare) || !strings.Contains(got, "detailed") {
 		t.Errorf("ICU Soul render incomplete: %q", got)
 	}
 }
@@ -54,7 +54,7 @@ func TestRenderPromptFull_UsesNameAndDescription(t *testing.T) {
 	s := Soul{
 		Identity: Identity{Name: "Radiology Reader", Description: "Analyzes medical images for radiology reports",
 			Persona: PersonaRadiology, Domain: DomainHealthcare},
-		Behavior: Behavior{Tone: "detailed", Language: "en-US"},
+		Behavior: Behavior{Tone: "detailed"},
 	}
 	got := RenderPromptFull(s)
 	if !strings.Contains(got, "Radiology Reader") {

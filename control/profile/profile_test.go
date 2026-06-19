@@ -26,7 +26,7 @@ func TestPersonas_DefaultSetRecognized(t *testing.T) {
 
 func TestPersonas_RegisterExtendsRegistry(t *testing.T) {
 	token := "test-persona-unique"
-	defer delete(defaultPersonas, token)
+	defer func() { _ = DeletePersona(token) }()
 	if ValidPersona(token) {
 		t.Fatal("precondition: token should not exist")
 	}
@@ -34,7 +34,13 @@ func TestPersonas_RegisterExtendsRegistry(t *testing.T) {
 	if !ValidPersona(token) {
 		t.Errorf("RegisterPersona did not register %q", token)
 	}
-	if found := contains(ListPersonas(), token); !found {
+	found := false
+	for _, e := range ListPersonas() {
+		if e.Token == token {
+			found = true
+		}
+	}
+	if !found {
 		t.Errorf("ListPersonas did not include registered %q", token)
 	}
 }

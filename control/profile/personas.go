@@ -1,15 +1,26 @@
 package profile
 
-import "sort"
+import (
+	"errors"
+	"sort"
+	"sync"
+)
 
 // Controlled vocabulary tokens for Identity.Persona and Identity.Domain (ADR-042 §1).
 //
-// These are intentionally string constants rather than a closed enum so the registry can
-// be extended (Admin may register additional personas in future phases) without breaking
-// serialized data. A blank Persona is permitted and is equivalent to PersonaGeneral.
-//
-// Free-form "You are a..." prompts are NOT accepted as Persona values — the whole point
-// of ADR-042 is to retire long system prompts.
+// The vocabulary is a single mutable registry seeded with platform defaults. Tokens
+// can be registered at runtime (e.g. an admin entering an out-of-list value) and any
+// token can be deleted EXCEPT "general", which is the protected base. Deletion safety
+// against dangling profile references is enforced at the runtime layer (the store
+// rejects deleting a token still referenced by a stored profile). A blank Persona/
+// Domain is always permitted and is equivalent to "general".
+
+var (
+	// ErrProtectedVocabulary is returned when attempting to delete "general".
+	ErrProtectedVocabulary = errors.New("profile: 'general' is protected and cannot be deleted")
+	// ErrUnknownVocabulary is returned when deleting a token that is not registered.
+	ErrUnknownVocabulary = errors.New("profile: unknown vocabulary token")
+)
 
 const (
 	PersonaGeneral   = "general"
@@ -20,87 +31,129 @@ const (
 )
 
 const (
-	DomainGeneral   = "general"
+	DomainGeneral    = "general"
 	DomainHealthcare = "healthcare"
-	DomainFinance   = "finance"
-	DomainLegal     = "legal"
+	DomainFinance    = "finance"
+	DomainLegal      = "legal"
 )
 
-// defaultPersonas is the built-in persona registry. It may be appended to at runtime
-// via RegisterPersona; the built-in set is always present and cannot be removed.
-var defaultPersonas = map[string]bool{
-	PersonaGeneral:   true,
-	PersonaICU:       true,
-	PersonaNursing:   true,
-	PersonaRadiology: true,
-	PersonaEmergency: true,
+// VocabEntry is a persona or domain token. Deletable is false only for "general".
+type VocabEntry struct {
+	Token     string `json:"token"`
+	Deletable bool   `json:"deletable"`
 }
 
-// defaultDomains is the built-in domain registry.
-var defaultDomains = map[string]bool{
-	DomainGeneral:    true,
-	DomainHealthcare: true,
-	DomainFinance:    true,
-	DomainLegal:      true,
-}
+var (
+	vocabMu sync.RWMutex
+	// Single mutable registry per kind, seeded with defaults. "general" is protected.
+	personaRegistry = map[string]bool{
+		PersonaGeneral: true, PersonaICU: true, PersonaNursing: true,
+		PersonaRadiology: true, PersonaEmergency: true,
+	}
+	domainRegistry = map[string]bool{
+		DomainGeneral: true, DomainHealthcare: true, DomainFinance: true, DomainLegal: true,
+	}
+)
 
-// RegisterPersona adds a persona token to the runtime registry. It allows controlled
-// extension without code changes in future phases. Re-registering an existing token is
-// a no-op. Returns the token for chaining.
+// RegisterPersona adds a custom persona token. Empty tokens are no-ops. Returns the
+// token for chaining.
 func RegisterPersona(token string) string {
-	if token != "" {
-		defaultPersonas[token] = true
+	if token == "" {
+		return token
 	}
+	vocabMu.Lock()
+	personaRegistry[token] = true
+	vocabMu.Unlock()
 	return token
 }
 
-// RegisterDomain adds a domain token to the runtime registry.
+// RegisterDomain adds a custom domain token.
 func RegisterDomain(token string) string {
-	if token != "" {
-		defaultDomains[token] = true
+	if token == "" {
+		return token
 	}
+	vocabMu.Lock()
+	domainRegistry[token] = true
+	vocabMu.Unlock()
 	return token
 }
 
-// ValidPersona reports whether a persona token is recognized. A blank token is valid
-// (treated as "general"/unspecified).
+// DeletePersona removes a persona token. "general" is protected. Unknown tokens
+// return ErrUnknownVocabulary. Dangling-reference checks are the caller's (runtime)
+// responsibility.
+func DeletePersona(token string) error {
+	if token == PersonaGeneral {
+		return ErrProtectedVocabulary
+	}
+	vocabMu.Lock()
+	defer vocabMu.Unlock()
+	if !personaRegistry[token] {
+		return ErrUnknownVocabulary
+	}
+	delete(personaRegistry, token)
+	return nil
+}
+
+// DeleteDomain removes a domain token. "general" is protected.
+func DeleteDomain(token string) error {
+	if token == DomainGeneral {
+		return ErrProtectedVocabulary
+	}
+	vocabMu.Lock()
+	defer vocabMu.Unlock()
+	if !domainRegistry[token] {
+		return ErrUnknownVocabulary
+	}
+	delete(domainRegistry, token)
+	return nil
+}
+
+// ValidPersona reports whether a persona token is registered (or blank).
 func ValidPersona(token string) bool {
 	if token == "" {
 		return true
 	}
-	return defaultPersonas[token]
+	vocabMu.RLock()
+	defer vocabMu.RUnlock()
+	return personaRegistry[token]
 }
 
-// ValidDomain reports whether a domain token is recognized. A blank token is valid.
+// ValidDomain reports whether a domain token is registered (or blank).
 func ValidDomain(token string) bool {
 	if token == "" {
 		return true
 	}
-	return defaultDomains[token]
+	vocabMu.RLock()
+	defer vocabMu.RUnlock()
+	return domainRegistry[token]
 }
 
-// ListPersonas returns the sorted set of registered persona tokens.
-func ListPersonas() []string {
-	return sortedKeys(defaultPersonas)
+// ListPersonas returns all registered persona tokens, marked Deletable (false for
+// "general" only).
+func ListPersonas() []VocabEntry {
+	vocabMu.RLock()
+	defer vocabMu.RUnlock()
+	return vocabEntries(personaRegistry)
 }
 
-// ListDomains returns the sorted set of registered domain tokens.
-func ListDomains() []string {
-	return sortedKeys(defaultDomains)
+// ListDomains returns all registered domain tokens, marked Deletable.
+func ListDomains() []VocabEntry {
+	vocabMu.RLock()
+	defer vocabMu.RUnlock()
+	return vocabEntries(domainRegistry)
 }
 
-func sortedKeys(m map[string]bool) []string {
-	out := make([]string, 0, len(m))
-	for k := range m {
-		out = append(out, k)
+func vocabEntries(reg map[string]bool) []VocabEntry {
+	out := make([]VocabEntry, 0, len(reg))
+	for k := range reg {
+		out = append(out, VocabEntry{Token: k, Deletable: k != PersonaGeneral})
 	}
-	sort.Strings(out)
+	sort.Slice(out, func(i, j int) bool { return out[i].Token < out[j].Token })
 	return out
 }
 
 // ValidatePersonaFields validates the Identity persona/domain tokens of a profile,
-// returning violations for any unrecognized token. Used by the write path alongside
-// ValidateScope. A blank token is never a violation.
+// returning violations for any unrecognized token. A blank token is never a violation.
 func ValidatePersonaFields(p AssistantProfile) []Violation {
 	var vs []Violation
 	if !ValidPersona(p.Soul.Identity.Persona) {

@@ -23,7 +23,6 @@ package profile
 //	-------------------------------|--------|--------|--------
 //	soul.identity.*                |  def   |   ✓    |   ✗
 //	soul.behavior.tone/citations   |  def   |   ✓    |   ✗
-//	soul.behavior.language         |  def   |   ✓    |   ✓
 //	reasoning.enabled              |  def   |   ✓    |   ✗
 //	reasoning.show_reasoning       |  def   |   ✗     |   ✓
 //	safety.*                       |  LOCK  |   ✗    |   ✗
@@ -72,7 +71,6 @@ func mergeTenant(effective *AssistantProfile, tenant AssistantProfile) []Violati
 
 	// --- Soul.Behavior: tone + citations tenant-allowed; language tenant-allowed ---
 	mergeString(&effective.Soul.Behavior.Tone, tenant.Soul.Behavior.Tone)
-	mergeString(&effective.Soul.Behavior.Language, tenant.Soul.Behavior.Language)
 	mergeBoolPtr(&effective.Soul.Behavior.Citations, tenant.Soul.Behavior.Citations)
 
 	// --- Reasoning: enabled tenant-allowed; show_reasoning session-only (recorded above) ---
@@ -101,7 +99,6 @@ func mergeSession(effective *AssistantProfile, session AssistantProfile) []Viola
 	vs := ValidateScope(session)
 
 	// Apply only allow-listed fields.
-	mergeString(&effective.Soul.Behavior.Language, session.Soul.Behavior.Language)
 	mergeBoolPtr(&effective.Reasoning.ShowReasoning, session.Reasoning.ShowReasoning)
 	mergeString(&effective.Output.Language, session.Output.Language)
 	mergeBoolPtr(&effective.Output.Markdown, session.Output.Markdown)
@@ -149,8 +146,7 @@ func DefaultGlobal() AssistantProfile {
 				Domain:      DomainGeneral,
 			},
 			Behavior: Behavior{
-				Tone:     "concise",
-				Language: "zh-CN",
+				Tone: "concise",
 			},
 		},
 		Reasoning: ReasoningPolicy{Enabled: &t, ShowReasoning: &f},

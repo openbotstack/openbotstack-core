@@ -30,7 +30,7 @@ func TestMerge_TenantOverridesAllowedFields(t *testing.T) {
 	tenant := &AssistantProfile{
 		Scope: ScopeTenant,
 		Soul: Soul{Identity: Identity{Name: "ICU Bot", Persona: PersonaICU, Domain: DomainHealthcare},
-			Behavior: Behavior{Tone: "detailed", Language: "en-US"}},
+			Behavior: Behavior{Tone: "detailed"}},
 		Output: OutputPolicy{Language: "en-US"},
 	}
 	eff, vs := Merge(g, tenant, nil)
@@ -45,9 +45,6 @@ func TestMerge_TenantOverridesAllowedFields(t *testing.T) {
 	}
 	if eff.Soul.Behavior.Tone != "detailed" {
 		t.Errorf("tenant tone override failed: %q", eff.Soul.Behavior.Tone)
-	}
-	if eff.Soul.Behavior.Language != "en-US" {
-		t.Errorf("tenant behavior language override failed: %q", eff.Soul.Behavior.Language)
 	}
 	if eff.Output.Language != "en-US" {
 		t.Errorf("tenant output language override failed: %q", eff.Output.Language)
@@ -121,7 +118,7 @@ func TestMerge_SessionOverridesAllowedFields(t *testing.T) {
 	g := DefaultGlobal()
 	session := &AssistantProfile{
 		Scope:         ScopeSession,
-		Soul:          Soul{Behavior: Behavior{Language: "en-US"}},
+		Soul:          Soul{Behavior: Behavior{}},
 		Reasoning:     ReasoningPolicy{ShowReasoning: boolPtr(true)},
 		Output:        OutputPolicy{Language: "en-US", Markdown: boolPtr(false)},
 		Presentation:  PresentationPolicy{CompactMode: boolPtr(true), Theme: "dark"},
@@ -129,9 +126,6 @@ func TestMerge_SessionOverridesAllowedFields(t *testing.T) {
 	eff, vs := Merge(g, nil, session)
 	if len(vs) != 0 {
 		t.Fatalf("session-only override should not violate, got %v", vs)
-	}
-	if eff.Soul.Behavior.Language != "en-US" {
-		t.Errorf("session behavior.language failed: %q", eff.Soul.Behavior.Language)
 	}
 	if !boolVal(eff.Reasoning.ShowReasoning) {
 		t.Errorf("session reasoning.show_reasoning failed")
@@ -209,8 +203,8 @@ func TestMerge_NilPointersInherit(t *testing.T) {
 
 func TestMerge_SessionOverlaysOnTenant(t *testing.T) {
 	g := DefaultGlobal()
-	tenant := &AssistantProfile{Scope: ScopeTenant, Output: OutputPolicy{Language: "en-US"}}
-	session := &AssistantProfile{Scope: ScopeSession, Output: OutputPolicy{Language: "ja-JP"}}
+tenant := &AssistantProfile{Scope: ScopeTenant, Output: OutputPolicy{Language: "en-US"}}
+session := &AssistantProfile{Scope: ScopeSession, Output: OutputPolicy{Language: "ja-JP"}}
 	eff, vs := Merge(g, tenant, session)
 	if len(vs) != 0 {
 		t.Fatalf("unexpected violations: %v", vs)

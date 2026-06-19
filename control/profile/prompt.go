@@ -38,12 +38,6 @@ func RenderPrompt(s Soul) string {
 		}
 		fmt.Fprintf(&b, "Tone: %s", s.Behavior.Tone)
 	}
-	if s.Behavior.Language != "" {
-		if b.Len() > 0 {
-			b.WriteString(". ")
-		}
-		fmt.Fprintf(&b, "Language: %s", s.Behavior.Language)
-	}
 	if s.Behavior.Citations != nil && *s.Behavior.Citations {
 		if b.Len() > 0 {
 			b.WriteString(". ")

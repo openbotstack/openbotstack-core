@@ -122,7 +122,6 @@ func evidenceSetFields(e EvidencePolicy) []string {
 // sessionAllowedFields is the closed allow-list of leaf paths a Session scope may set.
 // Everything else Session attempts to set is a violation. Per ADR-042 §3.
 var sessionAllowedFields = map[string]bool{
-	"soul.behavior.language":     true,
 	"reasoning.show_reasoning":   true,
 	"output.language":            true,
 	"output.markdown":            true,
@@ -158,7 +157,6 @@ func sessionAllowListViolations(p AssistantProfile) []Violation {
 	report("soul.identity.avatar", p.Soul.Identity.Avatar != "")
 	// Soul.Behavior
 	report("soul.behavior.tone", p.Soul.Behavior.Tone != "")
-	report("soul.behavior.language", p.Soul.Behavior.Language != "")
 	report("soul.behavior.citations", p.Soul.Behavior.Citations != nil)
 	// Reasoning
 	report("reasoning.enabled", p.Reasoning.Enabled != nil)
