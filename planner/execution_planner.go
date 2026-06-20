@@ -146,6 +146,18 @@ func (p *LLMPlanner) llmPlanRound(ctx context.Context, pCtx *PlannerContext, pro
 	if pCtx.ProfileOutput != nil && pCtx.ProfileOutput.Temperature != nil {
 		mReq.Temperature = *pCtx.ProfileOutput.Temperature
 	}
+	// ADR-042 Phase 3: append output directives (language/markdown/citations) to the
+	// system message so the LLM shapes its output accordingly.
+	if pCtx.ProfileOutput != nil {
+		if dir := profile.RenderOutputDirective(*pCtx.ProfileOutput); dir != "" {
+			if systemText != "" {
+				systemText += "\n" + dir + "."
+			} else {
+				systemText = dir + "."
+			}
+			msgs[0].Contents = []types.ContentBlock{types.NewTextBlock(systemText)}
+		}
+	}
 
 	provider, err := p.router.Route(
 		[]types.CapabilityType{types.CapTextGeneration},

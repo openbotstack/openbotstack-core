@@ -67,3 +67,18 @@ func TestRenderPromptFull_UsesNameAndDescription(t *testing.T) {
 		t.Errorf("Full render missing domain: %q", got)
 	}
 }
+
+func TestRenderOutputDirective(t *testing.T) {
+	tr := true
+	o := OutputPolicy{Language: "zh-CN", Markdown: &tr, Citations: &tr}
+	got := RenderOutputDirective(o)
+	for _, want := range []string{"zh-CN", "Markdown", "evidence"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("RenderOutputDirective missing %q: %q", want, got)
+		}
+	}
+	// empty policy → empty directive
+	if RenderOutputDirective(OutputPolicy{}) != "" {
+		t.Error("empty OutputPolicy should yield empty directive")
+	}
+}

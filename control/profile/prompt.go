@@ -79,3 +79,21 @@ func RenderPromptFull(s Soul) string {
 	}
 	return strings.TrimSpace(b.String())
 }
+
+// RenderOutputDirective synthesises output-format directives from OutputPolicy (ADR-042
+// Phase 3 / candidate A). Unlike RenderPrompt (which is about WHO the assistant is),
+// this is about HOW the output should be shaped. The planner appends it to the system
+// message so the LLM respects language, markdown, and citation preferences.
+func RenderOutputDirective(o OutputPolicy) string {
+	var parts []string
+	if o.Language != "" {
+		parts = append(parts, fmt.Sprintf("Respond in %s", o.Language))
+	}
+	if o.Markdown != nil && *o.Markdown {
+		parts = append(parts, "Format the response in Markdown")
+	}
+	if o.Citations != nil && *o.Citations {
+		parts = append(parts, "Cite evidence sources for factual claims")
+	}
+	return strings.Join(parts, ". ")
+}
