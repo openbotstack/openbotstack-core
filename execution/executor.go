@@ -76,8 +76,5 @@ type SkillExecutor interface {
 
 	// LoadSkill prepares a skill for execution.
 	LoadSkill(ctx context.Context, pkg skills.Skill) error
-
-	// ExecutePlan runs a multi-step execution plan using the provided context.
-	ExecutePlan(ctx context.Context, plan *ExecutionPlan, ec *ExecutionContext) error
 }
 
