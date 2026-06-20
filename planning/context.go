@@ -19,6 +19,10 @@ type PlannerContext struct {
 	// populates this field from the profile.ProfileStore (Global scope only in
 	// Phase 2; Tenant/Session merge deferred to Phase 3).
 	ProfileSoul   *profile.Soul
+	// ProfileOutput (ADR-042 Phase 3 / candidate A): when non-nil, the planner applies
+	// Output.Temperature to the LLM GenerateRequest. Other Policy fields (Reasoning,
+	// Safety, Evidence, Presentation) are consumed by their respective runtime modules.
+	ProfileOutput *profile.OutputPolicy
 	MemoryContext []SearchResult
 	Skills        []aitypes.SkillDescriptor
 	UserRequest   string

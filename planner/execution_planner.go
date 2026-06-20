@@ -142,6 +142,10 @@ func (p *LLMPlanner) llmPlanRound(ctx context.Context, pCtx *PlannerContext, pro
 		Messages:  msgs,
 		MaxTokens: 8192,
 	}
+	// ADR-042 Phase 3 (candidate A): apply Output.Temperature from the effective profile.
+	if pCtx.ProfileOutput != nil && pCtx.ProfileOutput.Temperature != nil {
+		mReq.Temperature = *pCtx.ProfileOutput.Temperature
+	}
 
 	provider, err := p.router.Route(
 		[]types.CapabilityType{types.CapTextGeneration},
