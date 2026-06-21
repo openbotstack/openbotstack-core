@@ -25,10 +25,6 @@ type MemoryManager interface {
 	// RetrieveByTag returns memories matching all specified tags.
 	RetrieveByTag(ctx context.Context, tags []string, limit int) ([]MemoryEntry, error)
 
-	// Forget removes a specific memory entry.
-	// Returns an error if the ID doesn't exist.
-	Forget(ctx context.Context, id string) error
-
 	// Summarize triggers compaction of memories.
 	// Used when context window pressure requires aggregation.
 	Summarize(ctx context.Context, entries []MemoryEntry) (MemoryEntry, error)

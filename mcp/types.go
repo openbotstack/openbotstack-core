@@ -13,6 +13,8 @@
 package mcp
 
 import (
+	"time"
+
 	aitypes "github.com/openbotstack/openbotstack-core/ai/types"
 )
 
@@ -190,4 +192,16 @@ func (a *ServerAuth) EnvVars() map[string]string {
 		return nil
 	}
 	return a.EnvAuth
+}
+
+// ServerHealth describes the health status of an MCP server. Lives in core (not
+// runtime) so the API-layer MCPAdmin interface can reference it without importing
+// runtime packages (R3-4: was previously leaking runtime/mcp.ServerHealth into api).
+type ServerHealth struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Healthy   bool      `json:"healthy"`
+	ToolCount int       `json:"tool_count"`
+	Error     string    `json:"error,omitempty"`
+	CheckedAt time.Time `json:"checked_at"`
 }
