@@ -3,6 +3,9 @@ package prompts
 import (
 	_ "embed"
 	"text/template"
+
+	"github.com/openbotstack/openbotstack-core/execution"
+	"github.com/openbotstack/openbotstack-core/planning"
 )
 
 //go:embed plan_prompt.md
@@ -66,4 +69,26 @@ type ReplanData struct {
 	TurnResults     []TurnResultData // structured results from previous turns
 	Skills          string
 	UserRequest     string
+}
+
+// NewTurnResultData converts a TurnToolResult to the template-facing DTO.
+// Shared between buildPrompt and buildReplanPrompt (R2-5: was duplicated).
+func NewTurnResultData(tr execution.TurnToolResult) TurnResultData {
+	return TurnResultData{
+		StepName: tr.StepName,
+		StepType: tr.StepType,
+		Success:  tr.Success,
+		Summary:  tr.Summary,
+		Error:    tr.Error,
+	}
+}
+
+// CollectMemoryStrings extracts content strings from SearchResult entries.
+// Shared between buildPrompt and buildReplanPrompt (R2-5: was duplicated).
+func CollectMemoryStrings(entries []planning.SearchResult) []string {
+	var out []string
+	for _, mem := range entries {
+		out = append(out, string(mem.Content))
+	}
+	return out
 }

@@ -220,21 +220,10 @@ func (p *LLMPlanner) buildPrompt(pCtx *PlannerContext) string {
 		specs = append(specs, SchemaToToolSpec(skill))
 	}
 
-	var memContext []string
-	for _, mem := range pCtx.MemoryContext {
-		memContext = append(memContext, string(mem.Content))
-	}
-
-	// Format structured turn results for the template.
+	memContext := prompts.CollectMemoryStrings(pCtx.MemoryContext)
 	turnResults := make([]prompts.TurnResultData, len(pCtx.TurnResults))
 	for i, tr := range pCtx.TurnResults {
-		turnResults[i] = prompts.TurnResultData{
-			StepName: tr.StepName,
-			StepType: tr.StepType,
-			Success:  tr.Success,
-			Summary:  tr.Summary,
-			Error:    tr.Error,
-		}
+		turnResults[i] = prompts.NewTurnResultData(tr)
 	}
 
 	data := prompts.PlanData{

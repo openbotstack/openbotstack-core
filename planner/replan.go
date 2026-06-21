@@ -97,20 +97,10 @@ func (p *LLMPlanner) buildReplanPrompt(rCtx *ReplanContext) string {
 		specs = append(specs, SchemaToToolSpec(skill))
 	}
 
-	var memContext []string
-	for _, mem := range rCtx.PlannerContext.MemoryContext {
-		memContext = append(memContext, string(mem.Content))
-	}
-
+	memContext := prompts.CollectMemoryStrings(rCtx.PlannerContext.MemoryContext)
 	turnResults := make([]prompts.TurnResultData, len(rCtx.PlannerContext.TurnResults))
 	for i, tr := range rCtx.PlannerContext.TurnResults {
-		turnResults[i] = prompts.TurnResultData{
-			StepName: tr.StepName,
-			StepType: tr.StepType,
-			Success:  tr.Success,
-			Summary:  tr.Summary,
-			Error:    tr.Error,
-		}
+		turnResults[i] = prompts.NewTurnResultData(tr)
 	}
 
 	data := prompts.ReplanData{
