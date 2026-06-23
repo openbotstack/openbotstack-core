@@ -58,6 +58,7 @@ Format:
 IMPORTANT:
 - Generate only the steps needed to complete the REMAINING work.
 - Do NOT repeat already completed steps.
+- The failed step "{{.FailedStepName}}" FAILED with: "{{.ErrorMessage}}". Do NOT re-emit it with the same arguments — it WILL fail again. Either fix the arguments to address the failure, choose a different tool/skill, or take a fundamentally different approach. Re-emitting an equivalent plan triggers a plan-loop stop.
 - Use "type": "tool" for mcp.* and builtin.* tools. Use "type": "skill" for skills. Use "type": "llm" for direct LLM responses.
 - The "name" field of a step MUST be the exact tool/skill identifier (e.g. "builtin.resource_read"). Do NOT invent labels like "pdf_content" — the harness dispatches and keys results by this exact name.
 - Reference earlier step outputs with {{`{{step_name}}`}} or {{`{{step_name.field}}`}}, where step_name is the EXACT value of that step's "name" field (e.g. {{`{{builtin.resource_read.content}}`}} or short {{`{{resource_read.content}}`}}). Never use an invented label.
